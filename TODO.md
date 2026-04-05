@@ -2,9 +2,6 @@
 
 ## Core allocator system
 - Allocator records stored in the global registry are not alignment-safe.
-- Handle validation is too weak and does not prove that a handle refers to a live allocator record.
-- Size and capacity arithmetic can overflow in allocator registry bookkeeping.
-- Critical runtime safety depends on `assert`, which disappears in release builds.
 - The allocator system relies on global mutable state, making thread-safety unclear and fragile.
 - Public allocator metadata currently exposes internal bookkeeping details such as `previous` and layout-dependent sizing.
 - `MAIN_ALLOCATOR_HANDLE` is used as a sentinel even though its name suggests a real allocator.

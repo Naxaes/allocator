@@ -50,6 +50,9 @@ static void system_destroy(struct Allocator *allocator) {
 }
 
 struct SystemAllocator make_system_allocator(struct SystemAllocatorOptions options) {
+    const uint8_t oom_strategy = options.oom_strategy != 0 ? options.oom_strategy : OOM_STRATEGY_PANIC;
+    const uint32_t alignment = options.alignment != 0 ? options.alignment : (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT;
+
     return (struct SystemAllocator){
         .allocator = {
             .allocate = system_allocate,
@@ -59,11 +62,11 @@ struct SystemAllocator make_system_allocator(struct SystemAllocatorOptions optio
             .name = options.name ? options.name : "SystemAllocator",
             .parent = options.parent.id != 0 ? options.parent : MAIN_ALLOCATOR_HANDLE,
             .flag = {
-                .oom_strategy = options.oom_strategy,
+                .oom_strategy = oom_strategy,
                 .supports_reallocation = 1,
                 .supports_deallocation = 1,
                 .is_thread_safe = 1,
-                .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT
+                .alignment = alignment
             },
             .size = (uint32_t)(sizeof(struct SystemAllocator) - sizeof(struct Allocator))
         }
