@@ -1,1 +1,0 @@
-/usr/bin/cc -g -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/allocators_leakcheck.dir/main.c.o CMakeFiles/allocators_leakcheck.dir/allocator.c.o CMakeFiles/allocators_leakcheck.dir/system_allocator.c.o CMakeFiles/allocators_leakcheck.dir/stack_allocator.c.o -o allocators_leakcheck

@@ -1,7 +1,6 @@
 #include "allocator.h"
 
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -11,6 +10,38 @@ static uint8_t *allocators = NULL;
 static uint32_t allocator_offset = 0;
 static uint32_t allocator_capacity = 0;
 static struct AllocatorHandle allocator_current = { .id = UINT32_MAX };
+
+struct AllocatorAlignmentProbe {
+    char padding;
+    struct Allocator value;
+};
+
+#define ALLOCATOR_RECORD_ALIGNMENT ((size_t)offsetof(struct AllocatorAlignmentProbe, value))
+
+static size_t allocator_record_alignment(const struct Allocator *allocator) {
+    size_t alignment = allocator->flag.alignment;
+
+    if (alignment == 0) {
+        alignment = ALLOCATOR_DEFAULT_ALIGNMENT;
+    }
+    if (alignment < ALLOCATOR_RECORD_ALIGNMENT) {
+        alignment = ALLOCATOR_RECORD_ALIGNMENT;
+    }
+
+    return alignment;
+}
+
+static uint32_t align_allocator_offset(uint32_t offset, size_t alignment) {
+    const size_t remainder = offset % alignment;
+    size_t aligned_offset = offset;
+
+    if (remainder != 0) {
+        aligned_offset += alignment - remainder;
+    }
+
+    assert(aligned_offset <= UINT32_MAX);
+    return (uint32_t)aligned_offset;
+}
 
 
 static int allocator_handle_is_main(struct AllocatorHandle handle) {
@@ -41,21 +72,23 @@ static int allocators_grow(uint32_t required_capacity) {
 struct AllocatorHandle push_allocator(const struct Allocator *allocator) {
     assert(allocator != NULL);
 
+    const size_t alignment = allocator_record_alignment(allocator);
+    const uint32_t aligned_offset = align_allocator_offset(allocator_offset, alignment);
     const uint32_t total_size = (uint32_t)(sizeof(struct Allocator) + allocator->size);
-    const uint32_t required_capacity = allocator_offset + total_size;
+    const uint32_t required_capacity = aligned_offset + total_size;
 
     if (required_capacity > allocator_capacity) {
         const int result = allocators_grow(required_capacity);
         assert(result == 0 && "Failed to grow allocator registry");
     }
 
-    const struct AllocatorHandle handle = { .id = allocator_offset };
-    memcpy(&allocators[allocator_offset], allocator, total_size);
+    const struct AllocatorHandle handle = { .id = aligned_offset };
+    memcpy(&allocators[aligned_offset], allocator, total_size);
 
-    struct Allocator *stored_allocator = (struct Allocator *)&allocators[allocator_offset];
+    struct Allocator *stored_allocator = (struct Allocator *)&allocators[aligned_offset];
     stored_allocator->previous = allocator_current;
 
-    allocator_offset += total_size;
+    allocator_offset = required_capacity;
     allocator_current = handle;
     return handle;
 }
@@ -67,6 +100,7 @@ struct Allocator *get_current_allocator(void) {
 
 struct Allocator *get_allocator(struct AllocatorHandle handle) {
     assert(handle.id + sizeof(struct Allocator) <= allocator_offset);
+    assert((handle.id % ALLOCATOR_RECORD_ALIGNMENT) == 0);
     return (struct Allocator *)&allocators[handle.id];
 }
 

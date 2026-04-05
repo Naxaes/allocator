@@ -1,1 +1,0 @@
-/usr/bin/cc -g -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names -fsanitize=address,undefined CMakeFiles/allocators.dir/main.c.o CMakeFiles/allocators.dir/allocator.c.o CMakeFiles/allocators.dir/system_allocator.c.o CMakeFiles/allocators.dir/stack_allocator.c.o -o allocators

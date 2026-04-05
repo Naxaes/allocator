@@ -16,6 +16,20 @@ struct MemoryRegion {
     size_t size;
 };
 
+union AllocatorMaxAlign {
+    void *as_pointer;
+    size_t as_size;
+    long double as_long_double;
+    long long as_long_long;
+};
+
+struct AllocatorDefaultAlignmentProbe {
+    char padding;
+    union AllocatorMaxAlign value;
+};
+
+#define ALLOCATOR_DEFAULT_ALIGNMENT ((size_t)offsetof(struct AllocatorDefaultAlignmentProbe, value))
+
 struct Allocator;
 typedef struct MemoryRegion (*AllocateFn)(struct Allocator *, size_t);
 typedef struct MemoryRegion (*ReallocateFn)(struct Allocator *, struct MemoryRegion, size_t);

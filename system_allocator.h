@@ -7,7 +7,14 @@ struct SystemAllocator {
     struct Allocator allocator;
 };
 
-struct SystemAllocator make_system_allocator(void);
+struct SystemAllocatorOptions {
+    const char* name;
+    struct AllocatorHandle parent;
+    uint8_t oom_strategy;
+    uint32_t alignment;
+};
+
+struct SystemAllocator make_system_allocator(struct SystemAllocatorOptions options);
 
 #endif
 

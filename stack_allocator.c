@@ -1,7 +1,27 @@
 #include "stack_allocator.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+static size_t stack_allocation_alignment(const struct StackAllocator *stack) {
+    size_t alignment = stack->allocator.flag.alignment;
+
+    if (alignment == 0) {
+        alignment = ALLOCATOR_DEFAULT_ALIGNMENT;
+    }
+
+    return alignment;
+}
+
+static size_t stack_align_up(size_t offset, size_t alignment) {
+    const size_t remainder = offset % alignment;
+    if (remainder == 0) {
+        return offset;
+    }
+
+    return offset + (alignment - remainder);
+}
 
 static void panic(const char *message) {
     fprintf(stderr, "%s\n", message);
@@ -38,11 +58,13 @@ static int stack_resize_pool(struct StackAllocator *stack, size_t required_size)
 
 static struct MemoryRegion stack_allocate(struct Allocator *allocator, size_t size) {
     struct StackAllocator *stack = (struct StackAllocator *)allocator;
-    const size_t required_size = stack->used + size;
+    const size_t alignment = stack_allocation_alignment(stack);
+    const size_t aligned_used = stack_align_up(stack->used, alignment);
+    const size_t required_size = aligned_used + size;
 
     if (required_size > stack->pool_size) {
         if (stack->pool == NULL) {
-            const struct MemoryRegion initial_pool = allocate_from(stack->allocator.parent, size);
+            const struct MemoryRegion initial_pool = allocate_from(stack->allocator.parent, required_size);
             if (initial_pool.base != NULL) {
                 stack->pool = initial_pool.base;
                 stack->pool_size = initial_pool.size;
@@ -70,8 +92,9 @@ static struct MemoryRegion stack_allocate(struct Allocator *allocator, size_t si
         }
     }
 
-    void *base = stack->pool + stack->used;
-    stack->used += size;
+    void *base = stack->pool + aligned_used;
+    assert(((uintptr_t)base % alignment) == 0);
+    stack->used = required_size;
     return (struct MemoryRegion){ .base = base, .size = size };
 }
 
@@ -103,7 +126,8 @@ struct StackAllocator make_stack_allocator(struct AllocatorHandle parent, uint8_
                 .oom_strategy = oom_strategy,
                 .supports_reallocation = 0,
                 .supports_deallocation = 0,
-                .is_thread_safe = 0
+                .is_thread_safe = 0,
+                .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT
             },
             .size = (uint32_t)(sizeof(struct StackAllocator) - sizeof(struct Allocator))
         },
