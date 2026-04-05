@@ -9,8 +9,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(ALLOCATORS_ENABLE_SANITIZERS "Build with AddressSanitizer and UndefinedBehaviorSanitizer in Debug." ON)
 option(ALLOCATORS_ENABLE_CLANG_TIDY "Run clang-tidy while building when it is available." OFF)
 
-add_executable(allocators main.c)
-add_executable(allocators_leakcheck main.c)
+set(ALLOCATORS_SOURCES
+		main.c
+		allocator.c
+		system_allocator.c
+		stack_allocator.c
+)
+
+add_executable(allocators ${ALLOCATORS_SOURCES})
+add_executable(allocators_leakcheck ${ALLOCATORS_SOURCES})
+
+foreach (target allocators allocators_leakcheck)
+	target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+endforeach ()
 
 foreach (target allocators allocators_leakcheck)
 	target_compile_options(${target} PRIVATE
