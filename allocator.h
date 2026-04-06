@@ -34,12 +34,12 @@ struct Allocator {
     struct AllocatorHandle parent;
     struct AllocatorHandle previous;
     struct {
-        uint32_t oom_strategy : 3,
+        uint32_t oom_strategy : 2,
                  supports_reallocation : 1,
                  supports_deallocation : 1,
                  is_thread_safe : 1,
-                 alignment: 16,
-                 reserved : 10;
+                 alignment : 16,
+                 id : 11;
     } flag;
     uint32_t size;
 };
