@@ -1,8 +1,7 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include "preamble.h"
 
 enum OOM_Strategy {
     OOM_STRATEGY_PANIC = 1,
@@ -12,23 +11,9 @@ enum OOM_Strategy {
 };
 
 struct MemoryRegion {
-    void *base;
+    void*  base;
     size_t size;
 };
-
-union AllocatorMaxAlign {
-    void *as_pointer;
-    size_t as_size;
-    long double as_long_double;
-    long long as_long_long;
-};
-
-struct AllocatorDefaultAlignmentProbe {
-    char padding;
-    union AllocatorMaxAlign value;
-};
-
-#define ALLOCATOR_DEFAULT_ALIGNMENT ((size_t)offsetof(struct AllocatorDefaultAlignmentProbe, value))
 
 struct Allocator;
 typedef struct MemoryRegion (*AllocateFn)(struct Allocator *, size_t);
@@ -45,7 +30,7 @@ struct Allocator {
     ReallocateFn reallocate;
     DeallocateFn deallocate;
     DestroyFn destroy;
-    const char *name;
+    const char* name;
     struct AllocatorHandle parent;
     struct AllocatorHandle previous;
     struct {
@@ -62,9 +47,9 @@ struct Allocator {
 extern const struct AllocatorHandle MAIN_ALLOCATOR_HANDLE;
 
 struct AllocatorHandle push_allocator(const struct Allocator *allocator);
-struct Allocator *get_current_allocator(void);
-struct Allocator *get_allocator(struct AllocatorHandle handle);
-void pop_allocator(struct AllocatorHandle handle);
+struct Allocator* get_current_allocator(void);
+struct Allocator* get_allocator(struct AllocatorHandle handle);
+void pop_allocator(void);
 void allocator_cleanup(void);
 
 struct MemoryRegion allocate_from(struct AllocatorHandle handle, size_t size);
@@ -74,6 +59,21 @@ void deallocate_from(struct AllocatorHandle handle, struct MemoryRegion region);
 struct MemoryRegion allocate(size_t size);
 struct MemoryRegion reallocate(struct MemoryRegion region, size_t new_size);
 void deallocate(struct MemoryRegion region);
+
+
+// ---- Helpers ----
+static inline size_t align_up(size_t offset, size_t alignment) {
+    const size_t remainder = offset % alignment;
+    return remainder ? offset + (alignment - remainder) : offset;
+}
+
+static inline size_t align_down(size_t offset, size_t alignment) {
+    return offset - (offset % alignment);
+}
+
+#define total_size_of_allocator(allocator) (sizeof(struct Allocator) + allocator->size)
+
+
 
 #endif
 

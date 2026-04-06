@@ -37,7 +37,7 @@ int main(void) {
     assert_region_alignment(current_region);
     print_region("Allocated memory from current allocator", current_region);
 
-    pop_allocator(stack_handle);
+    pop_allocator();
     allocator_cleanup();
     return 0;
 }
