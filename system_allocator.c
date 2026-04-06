@@ -49,7 +49,7 @@ static void system_destroy(struct Allocator *allocator) {
     (void)allocator;
 }
 
-struct SystemAllocator make_system_allocator(struct SystemAllocatorOptions options) {
+struct SystemAllocator make_system_allocator(struct AllocatorOptions options) {
     const uint8_t oom_strategy = options.oom_strategy != 0 ? options.oom_strategy : OOM_STRATEGY_PANIC;
     const uint32_t alignment = options.alignment != 0 ? options.alignment : (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT;
 

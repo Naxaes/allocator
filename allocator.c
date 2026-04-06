@@ -24,6 +24,7 @@ struct AllocatorAlignmentProbe {
 
 
 static struct AllocatorHandle current_allocator_handle(void) {
+    assert(allocator_stack_top != 0 && "No allocator present");
     return (struct AllocatorHandle){ .id = allocator_current };
 }
 
@@ -61,7 +62,7 @@ struct AllocatorHandle push_allocator(const struct Allocator* allocator) {
         assert(result == 0 && "Failed to grow allocator registry");
     }
 
-    const struct AllocatorHandle previous_handle = current_allocator_handle();
+    const struct AllocatorHandle previous_handle = (struct AllocatorHandle){ .id = allocator_current };
     const struct AllocatorHandle handle = { .id = aligned_offset };
     memcpy(&allocators[aligned_offset], allocator, total_size);
 

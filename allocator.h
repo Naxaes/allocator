@@ -44,6 +44,13 @@ struct Allocator {
     uint32_t size;
 };
 
+struct AllocatorOptions {
+    const char* name;
+    struct AllocatorHandle parent;
+    uint8_t oom_strategy;
+    uint32_t alignment;
+};
+
 extern const struct AllocatorHandle MAIN_ALLOCATOR_HANDLE;
 
 struct AllocatorHandle push_allocator(const struct Allocator *allocator);
