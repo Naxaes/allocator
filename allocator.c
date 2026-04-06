@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-const struct AllocatorHandle MAIN_ALLOCATOR_HANDLE = { .id = UINT32_MAX };
+const struct AllocatorHandle MAIN_ALLOCATOR_HANDLE = { .id = 0 };
 
 /// A stack of variadic-length allocators.
 static uint8_t* allocators = NULL;
@@ -61,10 +61,14 @@ struct AllocatorHandle push_allocator(const struct Allocator* allocator) {
         assert(result == 0 && "Failed to grow allocator registry");
     }
 
+    const struct AllocatorHandle previous_handle = current_allocator_handle();
     const struct AllocatorHandle handle = { .id = aligned_offset };
     memcpy(&allocators[aligned_offset], allocator, total_size);
 
-    allocator_current = allocator_stack_top;
+    struct Allocator* pushed_allocator = (struct Allocator *)&allocators[aligned_offset];
+    pushed_allocator->previous = previous_handle;
+
+    allocator_current = aligned_offset;
     allocator_stack_top = new_stack_top;
     return handle;
 }
@@ -82,19 +86,20 @@ struct Allocator* get_allocator(struct AllocatorHandle handle) {
 }
 
 void pop_allocator(void) {
+    assert(allocator_stack_top != 0 && "No allocator to pop");
     const struct AllocatorHandle handle = current_allocator_handle();
-    assert(!allocator_handle_is_main(handle));
     assert(handle.id == allocator_current && "Only the current allocator can be popped");
 
     struct Allocator* allocator = get_allocator(handle);
+    const struct AllocatorHandle previous = allocator->previous;
     allocator->destroy(allocator);
 
     allocator_stack_top = allocator_current;
-    allocator_current = align_down(allocator_current - total_size_of_allocator(allocator), ALLOCATOR_RECORD_ALIGNMENT);
+    allocator_current = previous.id;
 }
 
 void allocator_cleanup(void) {
-    while (allocator_current != 0) {
+    while (allocator_stack_top != 0) {
         pop_allocator();
     }
 

@@ -6,8 +6,6 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_C_FLAGS "-O0 -g ${CMAKE_C_FLAGS}")
-
 option(ALLOCATORS_ENABLE_SANITIZERS "Build with AddressSanitizer and UndefinedBehaviorSanitizer in Debug." ON)
 option(ALLOCATORS_ENABLE_CLANG_TIDY "Run clang-tidy while building when it is available." OFF)
 
@@ -30,6 +28,13 @@ foreach (target allocators allocators_leakcheck)
 			-Wall
 			-Wextra
 			-Wpedantic
+			-Wshadow
+			-Wstrict-prototypes
+			$<$<CONFIG:Debug>:-O0>
+			$<$<CONFIG:Debug>:-g3>
+			$<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+			$<$<CONFIG:Debug>:-fno-optimize-sibling-calls>
+			$<$<CONFIG:Debug>:-fno-inline>
 	)
 endforeach ()
 
@@ -43,9 +48,6 @@ if (ALLOCATORS_ENABLE_SANITIZERS)
 	if (CMAKE_C_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
 		set(_allocators_supports_sanitizers TRUE)
 		target_compile_options(allocators PRIVATE
-				$<$<CONFIG:Debug>:-O1>
-				$<$<CONFIG:Debug>:-g>
-				$<$<CONFIG:Debug>:-fno-omit-frame-pointer>
 				$<$<CONFIG:Debug>:-fsanitize=address,undefined>
 		)
 		target_link_options(allocators PRIVATE
