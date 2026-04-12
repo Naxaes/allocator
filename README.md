@@ -7,6 +7,14 @@ This project currently includes:
 - `PoolAllocator`
 - `SlabAllocator`
 
+## Alignment semantics
+
+Allocator alignment settings are expressed as a base-2 exponent, not raw bytes.
+
+- `alignment = 4` means `2^4 = 16` byte alignment
+- `alignment = 5` means `2^5 = 32` byte alignment
+- `alignment = 0` means "use the allocator default alignment"
+
 ## Build
 
 ```sh

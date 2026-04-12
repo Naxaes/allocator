@@ -1,13 +1,15 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
+#include <assert.h>
+
 #include "preamble.h"
 
 enum OOM_Strategy {
-    OOM_STRATEGY_PANIC = 1,
-    OOM_STRATEGY_NULL = 2,
-    OOM_STRATEGY_GROW = 3,
-    OOM_STRATEGY_GROW_IF_POSSIBLE = 4
+    OOM_STRATEGY_PANIC = 0,
+    OOM_STRATEGY_NULL = 1,
+    OOM_STRATEGY_GROW = 2,
+    OOM_STRATEGY_GROW_IF_POSSIBLE = 3
 };
 
 struct MemoryRegion {
@@ -32,7 +34,7 @@ struct Allocator {
                  is_thread_safe : 1,
                  alignment : 5,
                  size: 12,
-                 id : 11;
+                 id : 12;
     } flag;
 };
 
@@ -40,7 +42,7 @@ struct AllocatorOptions {
     const char* name;
     struct Allocator* parent;
     uint8_t oom_strategy;
-    uint32_t alignment;
+    uint32_t alignment; // Power-of-two exponent: 4 -> 16-byte alignment, 0 -> default alignment.
 };
 
 void push_allocator(struct Allocator* allocator);
@@ -57,6 +59,48 @@ void deallocate(struct MemoryRegion region);
 
 
 // ---- Helpers ----
+enum {
+    ALLOCATOR_MAX_ALIGNMENT_EXPONENT = 31
+};
+
+static inline uint32_t allocator_alignment_exponent_from_bytes(size_t alignment) {
+    uint32_t exponent = 0;
+    size_t value = 1;
+
+    assert(alignment > 0);
+    while (value < alignment) {
+        value <<= 1;
+        exponent += 1;
+    }
+
+    assert(value == alignment && "Alignment must be a power of two.");
+    assert(exponent <= ALLOCATOR_MAX_ALIGNMENT_EXPONENT && "Alignment exponent exceeds Allocator bitfield capacity.");
+    return exponent;
+}
+
+static inline uint32_t allocator_default_alignment_exponent(void) {
+    return allocator_alignment_exponent_from_bytes(ALLOCATOR_DEFAULT_ALIGNMENT);
+}
+
+static inline uint32_t allocator_normalize_alignment_exponent(uint32_t alignment_exponent) {
+    const uint32_t effective_exponent = alignment_exponent != 0
+            ? alignment_exponent
+            : allocator_default_alignment_exponent();
+
+    assert(effective_exponent <= ALLOCATOR_MAX_ALIGNMENT_EXPONENT && "Alignment exponent exceeds Allocator bitfield capacity.");
+    return effective_exponent;
+}
+
+static inline size_t allocator_alignment_bytes_from_exponent(uint32_t alignment_exponent) {
+    assert(alignment_exponent <= ALLOCATOR_MAX_ALIGNMENT_EXPONENT && "Alignment exponent exceeds Allocator bitfield capacity.");
+    return ((size_t)1) << alignment_exponent;
+}
+
+static inline size_t allocator_alignment_bytes_for(const struct Allocator *allocator) {
+    assert(allocator != NULL);
+    return allocator_alignment_bytes_from_exponent(allocator->flag.alignment);
+}
+
 static inline size_t align_up(size_t offset, size_t alignment) {
     const size_t remainder = offset % alignment;
     return remainder ? offset + (alignment - remainder) : offset;

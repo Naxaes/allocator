@@ -195,7 +195,7 @@ static struct BenchmarkResult benchmark_malloc_baseline(size_t operations, size_
 static struct AllocatorOptions default_system_options(void) {
     return (struct AllocatorOptions){
         .oom_strategy = OOM_STRATEGY_PANIC,
-        .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+        .alignment = allocator_default_alignment_exponent(),
     };
 }
 
@@ -229,7 +229,7 @@ static struct BenchmarkResult benchmark_stack_allocator(size_t operations, size_
         struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
             .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_GROW,
-            .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+            .alignment = allocator_default_alignment_exponent(),
         });
         push_allocator(&stack_allocator.allocator);
 
@@ -258,7 +258,7 @@ static struct BenchmarkResult benchmark_pool_allocator(size_t operations, size_t
         .allocator_options = {
             .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_PANIC,
-            .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+            .alignment = allocator_default_alignment_exponent(),
         },
         .slot_size = allocation_size,
         .capacity = capacity,
@@ -302,7 +302,7 @@ static struct BenchmarkResult benchmark_slab_allocator(size_t operations, size_t
         .allocator_options = {
             .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_GROW,
-            .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+            .alignment = allocator_default_alignment_exponent(),
         },
         .slot_size = allocation_size,
         .slots_per_slab = slots_per_slab,

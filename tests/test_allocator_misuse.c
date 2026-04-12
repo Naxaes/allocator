@@ -10,7 +10,7 @@
 static struct AllocatorOptions default_system_options(void) {
     return (struct AllocatorOptions){
         .oom_strategy = OOM_STRATEGY_PANIC,
-        .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+        .alignment = allocator_default_alignment_exponent(),
     };
 }
 
@@ -33,7 +33,7 @@ static int run_stack_reallocate_unsupported(void) {
     struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
         .parent = &system_allocator.allocator,
         .oom_strategy = OOM_STRATEGY_GROW,
-        .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+        .alignment = allocator_default_alignment_exponent(),
     });
     push_allocator(&stack_allocator.allocator);
     const struct MemoryRegion region = allocate(32);
@@ -48,7 +48,7 @@ static int run_stack_deallocate_unsupported(void) {
     struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
         .parent = &system_allocator.allocator,
         .oom_strategy = OOM_STRATEGY_GROW,
-        .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+        .alignment = allocator_default_alignment_exponent(),
     });
     push_allocator(&stack_allocator.allocator);
     const struct MemoryRegion region = allocate(32);
@@ -64,7 +64,7 @@ static int run_pool_reallocate_unsupported(void) {
         .allocator_options = {
             .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_PANIC,
-            .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+            .alignment = allocator_default_alignment_exponent(),
         },
         .slot_size = 32,
         .capacity = 2,
@@ -83,7 +83,7 @@ static int run_slab_reallocate_unsupported(void) {
         .allocator_options = {
             .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_GROW,
-            .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+            .alignment = allocator_default_alignment_exponent(),
         },
         .slot_size = 32,
         .slots_per_slab = 2,

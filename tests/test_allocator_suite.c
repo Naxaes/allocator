@@ -10,8 +10,17 @@
 static struct AllocatorOptions default_system_options(void) {
     return (struct AllocatorOptions){
         .oom_strategy = OOM_STRATEGY_PANIC,
-        .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+        .alignment = allocator_default_alignment_exponent(),
     };
+}
+
+static int test_alignment_exponent_helpers(void) {
+    TEST_CHECK(allocator_alignment_exponent_from_bytes(16) == 4);
+    TEST_CHECK(allocator_alignment_exponent_from_bytes(32) == 5);
+    TEST_CHECK(allocator_alignment_bytes_from_exponent(4) == 16);
+    TEST_CHECK(allocator_alignment_bytes_from_exponent(5) == 32);
+    TEST_CHECK(allocator_normalize_alignment_exponent(0) == allocator_default_alignment_exponent());
+    return 0;
 }
 
 static int test_system_allocator_api(void) {
@@ -53,20 +62,43 @@ static int test_system_allocator_multiple_regions(void) {
     return 0;
 }
 
+static int test_system_allocator_custom_alignment_exponent(void) {
+    const uint32_t alignment_exponent = 5;
+    const size_t alignment = allocator_alignment_bytes_from_exponent(alignment_exponent);
+    struct SystemAllocator system_allocator = make_system_allocator((struct AllocatorOptions){
+        .oom_strategy = OOM_STRATEGY_PANIC,
+        .alignment = alignment_exponent,
+    });
+
+    push_allocator(&system_allocator.allocator);
+
+    {
+        struct MemoryRegion region = allocate(96);
+        TEST_CHECK(region.base != NULL);
+        TEST_CHECK(region.size == 96);
+        TEST_CHECK(system_allocator.allocator.flag.alignment == alignment_exponent);
+        TEST_CHECK(test_region_is_aligned(region, alignment));
+        deallocate(region);
+    }
+
+    pop_allocator();
+    return 0;
+}
+
 static int test_stack_allocator_alignment_and_growth(void) {
     struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
     push_allocator(&system_allocator.allocator);
     struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
         .parent = &system_allocator.allocator,
         .oom_strategy = OOM_STRATEGY_GROW,
-        .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+        .alignment = allocator_default_alignment_exponent(),
     });
     push_allocator(&stack_allocator.allocator);
     const struct MemoryRegion region = allocate(256);
 
     TEST_CHECK(region.base != NULL);
     TEST_CHECK(region.size == 256);
-    TEST_CHECK(test_region_is_aligned(region, stack_allocator.allocator.flag.alignment));
+    TEST_CHECK(test_region_is_aligned(region, allocator_alignment_bytes_for(&stack_allocator.allocator)));
     TEST_CHECK(stack_allocator.pool != NULL);
     TEST_CHECK(stack_allocator.pool_size >= stack_allocator.used);
 
@@ -81,7 +113,7 @@ static int test_stack_allocator_null_oom_path(void) {
     struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
         .parent = &system_allocator.allocator,
         .oom_strategy = OOM_STRATEGY_NULL,
-        .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+        .alignment = allocator_default_alignment_exponent(),
     });
 
     stack_allocator.pool = (uint8_t *)1;
@@ -100,14 +132,15 @@ static int test_stack_allocator_null_oom_path(void) {
 }
 
 static int test_pool_allocator_reuse_and_exhaustion(void) {
-    const uint32_t alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT;
+    const uint32_t alignment_exponent = 5;
+    const size_t alignment = allocator_alignment_bytes_from_exponent(alignment_exponent);
     struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
     push_allocator(&system_allocator.allocator);
     struct PoolAllocator pool_allocator = make_pool_allocator((struct PoolAllocatorOptions){
         .allocator_options = {
             .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_NULL,
-            .alignment = alignment,
+            .alignment = alignment_exponent,
         },
         .slot_size = 24,
         .capacity = 4,
@@ -146,14 +179,15 @@ static int test_pool_allocator_reuse_and_exhaustion(void) {
 }
 
 static int test_slab_allocator_growth_and_reuse(void) {
-    const uint32_t alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT;
+    const uint32_t alignment_exponent = 5;
+    const size_t alignment = allocator_alignment_bytes_from_exponent(alignment_exponent);
     struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
     push_allocator(&system_allocator.allocator);
     struct SlabAllocator slab_allocator = make_slab_allocator((struct SlabAllocatorOptions){
         .allocator_options = {
             .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_GROW,
-            .alignment = alignment,
+            .alignment = alignment_exponent,
         },
         .slot_size = 48,
         .slots_per_slab = 4,
@@ -197,10 +231,16 @@ static int test_slab_allocator_growth_and_reuse(void) {
 }
 
 int main(void) {
+    if (test_alignment_exponent_helpers() != 0) {
+        return 1;
+    }
     if (test_system_allocator_api() != 0) {
         return 1;
     }
     if (test_system_allocator_multiple_regions() != 0) {
+        return 1;
+    }
+    if (test_system_allocator_custom_alignment_exponent() != 0) {
         return 1;
     }
     if (test_stack_allocator_alignment_and_growth() != 0) {

@@ -12,8 +12,7 @@ static void panic(const char *message) {
 }
 
 static size_t pool_alignment(const struct PoolAllocator *pool) {
-    const size_t alignment = pool->allocator.flag.alignment;
-    return alignment >= ALLOCATOR_DEFAULT_ALIGNMENT ? alignment : ALLOCATOR_DEFAULT_ALIGNMENT;
+    return allocator_alignment_bytes_for(&pool->allocator);
 }
 
 static size_t pool_slot_stride(size_t slot_size, size_t alignment) {
@@ -126,13 +125,9 @@ struct PoolAllocator make_pool_allocator(struct PoolAllocatorOptions options) {
     const uint8_t oom_strategy = options.allocator_options.oom_strategy != 0
             ? options.allocator_options.oom_strategy
             : OOM_STRATEGY_PANIC;
-    const uint32_t alignment = options.allocator_options.alignment != 0
-            ? options.allocator_options.alignment
-            : (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT;
-    const size_t effective_alignment = alignment >= ALLOCATOR_DEFAULT_ALIGNMENT
-            ? alignment
-            : ALLOCATOR_DEFAULT_ALIGNMENT;
-    const size_t slot_stride = pool_slot_stride(options.slot_size, effective_alignment);
+    const uint32_t alignment = allocator_normalize_alignment_exponent(options.allocator_options.alignment);
+    const size_t alignment_bytes = allocator_alignment_bytes_from_exponent(alignment);
+    const size_t slot_stride = pool_slot_stride(options.slot_size, alignment_bytes);
 
     assert(options.slot_size > 0);
     assert(options.capacity > 0);
@@ -147,7 +142,7 @@ struct PoolAllocator make_pool_allocator(struct PoolAllocatorOptions options) {
             .flag = {
                 .oom_strategy = oom_strategy,
                 .is_thread_safe = 0,
-                .alignment = (uint32_t)effective_alignment,
+                .alignment = alignment,
                 .size = (uint32_t)(sizeof(struct PoolAllocator) - sizeof(struct Allocator))
             },
         },

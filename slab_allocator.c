@@ -21,8 +21,7 @@ static void panic(const char *message) {
 }
 
 static size_t slab_alignment(const struct SlabAllocator *allocator) {
-    const size_t alignment = allocator->allocator.flag.alignment;
-    return alignment >= ALLOCATOR_DEFAULT_ALIGNMENT ? alignment : ALLOCATOR_DEFAULT_ALIGNMENT;
+    return allocator_alignment_bytes_for(&allocator->allocator);
 }
 
 static size_t slab_slot_stride(size_t slot_size, size_t alignment) {
@@ -166,13 +165,9 @@ struct SlabAllocator make_slab_allocator(struct SlabAllocatorOptions options) {
     const uint8_t oom_strategy = options.allocator_options.oom_strategy != 0
             ? options.allocator_options.oom_strategy
             : OOM_STRATEGY_GROW;
-    const uint32_t alignment = options.allocator_options.alignment != 0
-            ? options.allocator_options.alignment
-            : (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT;
-    const size_t effective_alignment = alignment >= ALLOCATOR_DEFAULT_ALIGNMENT
-            ? alignment
-            : ALLOCATOR_DEFAULT_ALIGNMENT;
-    const size_t slot_stride = slab_slot_stride(options.slot_size, effective_alignment);
+    const uint32_t alignment = allocator_normalize_alignment_exponent(options.allocator_options.alignment);
+    const size_t alignment_bytes = allocator_alignment_bytes_from_exponent(alignment);
+    const size_t slot_stride = slab_slot_stride(options.slot_size, alignment_bytes);
 
     assert(options.slot_size > 0);
     assert(options.slots_per_slab > 0);
@@ -187,7 +182,7 @@ struct SlabAllocator make_slab_allocator(struct SlabAllocatorOptions options) {
             .flag = {
                 .oom_strategy = oom_strategy,
                 .is_thread_safe = 0,
-                .alignment = (uint32_t)effective_alignment,
+                .alignment = alignment,
                 .size = (uint32_t)(sizeof(struct SlabAllocator) - sizeof(struct Allocator))
             },
         },

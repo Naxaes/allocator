@@ -11,9 +11,7 @@ static void print_region(const char *label, struct MemoryRegion region) {
 }
 
 static void assert_region_alignment(struct MemoryRegion region, const struct Allocator *allocator) {
-    const size_t alignment = allocator->flag.alignment != 0
-            ? allocator->flag.alignment
-            : ALLOCATOR_DEFAULT_ALIGNMENT;
+    const size_t alignment = allocator_alignment_bytes_for(allocator);
 
     assert(region.base != NULL);
     assert(((uintptr_t)region.base % alignment) == 0);

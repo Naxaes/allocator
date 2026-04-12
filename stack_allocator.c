@@ -1,26 +1,12 @@
 #include "stack_allocator.h"
 
 #include <assert.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 static size_t stack_allocation_alignment(const struct StackAllocator *stack) {
-    size_t alignment = stack->allocator.flag.alignment;
-
-    if (alignment == 0) {
-        alignment = ALLOCATOR_DEFAULT_ALIGNMENT;
-    }
-
-    return alignment;
-}
-
-static size_t stack_align_up(size_t offset, size_t alignment) {
-    const size_t remainder = offset % alignment;
-    if (remainder == 0) {
-        return offset;
-    }
-
-    return offset + (alignment - remainder);
+    return allocator_alignment_bytes_for(&stack->allocator);
 }
 
 static void panic(const char *message) {
@@ -29,66 +15,61 @@ static void panic(const char *message) {
 }
 
 static int stack_resize_pool(struct StackAllocator *stack, size_t required_size) {
+    const size_t alignment = stack_allocation_alignment(stack);
     size_t new_size = (stack->pool_size == 0) ? 1 : stack->pool_size;
+
     while (new_size < required_size) {
         new_size *= 2;
     }
 
-    if (stack->pool == NULL) {
-        const struct MemoryRegion new_pool = allocate_from(stack->allocator.parent, new_size);
-        if (new_pool.base == NULL) {
+    {
+        const size_t requested_size = new_size + alignment - 1;
+        const struct MemoryRegion new_backing_region = allocate_from(stack->allocator.parent, requested_size);
+        uint8_t *new_pool = NULL;
+
+        if (new_backing_region.base == NULL) {
             return -1;
         }
 
-        stack->pool = new_pool.base;
-        stack->pool_size = new_pool.size;
-        return 0;
+        new_pool = (uint8_t *)align_up((uintptr_t)new_backing_region.base, alignment);
+        if (stack->pool != NULL && stack->used > 0) {
+            memcpy(new_pool, stack->pool, stack->used);
+            deallocate_from(stack->allocator.parent, stack->backing_region);
+        }
+
+        stack->backing_region = new_backing_region;
+        stack->pool = new_pool;
+        stack->pool_size = new_size;
     }
 
-    const struct MemoryRegion old_pool = { .base = stack->pool, .size = stack->pool_size };
-    const struct MemoryRegion new_pool = reallocate_from(stack->allocator.parent, old_pool, new_size);
-    if (new_pool.base == NULL) {
+    if (stack->pool == NULL) {
         return -1;
     }
-
-    stack->pool = new_pool.base;
-    stack->pool_size = new_pool.size;
     return 0;
 }
 
 static struct MemoryRegion stack_allocate(struct Allocator *allocator, size_t size) {
     struct StackAllocator *stack = (struct StackAllocator *)allocator;
     const size_t alignment = stack_allocation_alignment(stack);
-    const size_t aligned_used = stack_align_up(stack->used, alignment);
+    const size_t aligned_used = align_up(stack->used, alignment);
     const size_t required_size = aligned_used + size;
 
     if (required_size > stack->pool_size) {
-        if (stack->pool == NULL) {
-            const struct MemoryRegion initial_pool = allocate_from(stack->allocator.parent, required_size);
-            if (initial_pool.base != NULL) {
-                stack->pool = initial_pool.base;
-                stack->pool_size = initial_pool.size;
-            }
-        }
-
-        if (required_size > stack->pool_size) {
-            switch (stack->allocator.flag.oom_strategy) {
-                case OOM_STRATEGY_PANIC:
-                    panic("StackAllocator: Out of memory!");
-                case OOM_STRATEGY_NULL:
-                    return (struct MemoryRegion){ .base = NULL, .size = 0 };
-                case OOM_STRATEGY_GROW:
-                case OOM_STRATEGY_GROW_IF_POSSIBLE:
-                    if (stack_resize_pool(stack, required_size) != 0) {
-                        if (stack->allocator.flag.oom_strategy == OOM_STRATEGY_GROW_IF_POSSIBLE) {
-                            return (struct MemoryRegion){ .base = NULL, .size = 0 };
-                        }
-                        panic("StackAllocator: Failed to grow memory pool!");
+        switch (stack->allocator.flag.oom_strategy) {
+            case OOM_STRATEGY_PANIC:
+            case OOM_STRATEGY_GROW:
+            case OOM_STRATEGY_GROW_IF_POSSIBLE:
+                if (stack_resize_pool(stack, required_size) != 0) {
+                    if (stack->allocator.flag.oom_strategy == OOM_STRATEGY_GROW_IF_POSSIBLE) {
+                        return (struct MemoryRegion){ .base = NULL, .size = 0 };
                     }
-                    break;
-                default:
-                    panic("StackAllocator: Invalid OOM strategy!");
-            }
+                    panic("StackAllocator: Failed to grow memory pool!");
+                }
+                break;
+            case OOM_STRATEGY_NULL:
+                return (struct MemoryRegion){ .base = NULL, .size = 0 };
+            default:
+                panic("StackAllocator: Invalid OOM strategy!");
         }
     }
 
@@ -101,12 +82,12 @@ static struct MemoryRegion stack_allocate(struct Allocator *allocator, size_t si
 static void stack_allocator_destroy(struct Allocator *allocator) {
     struct StackAllocator *stack = (struct StackAllocator *)allocator;
 
-    if (stack->pool == NULL) {
+    if (stack->backing_region.base == NULL) {
         return;
     }
 
-    const struct MemoryRegion pool_region = { .base = stack->pool, .size = stack->pool_size };
-    deallocate_from(stack->allocator.parent, pool_region);
+    deallocate_from(stack->allocator.parent, stack->backing_region);
+    stack->backing_region = (struct MemoryRegion){ .base = NULL, .size = 0 };
     stack->pool = NULL;
     stack->pool_size = 0;
     stack->used = 0;
@@ -116,9 +97,7 @@ struct StackAllocator make_stack_allocator(struct AllocatorOptions options) {
     const uint8_t oom_strategy = options.oom_strategy != 0
             ? options.oom_strategy
             : OOM_STRATEGY_PANIC;
-    const uint32_t alignment = options.alignment != 0
-            ? options.alignment
-            : (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT;
+    const uint32_t alignment = allocator_normalize_alignment_exponent(options.alignment);
 
     return (struct StackAllocator){
         .allocator = {
@@ -134,6 +113,7 @@ struct StackAllocator make_stack_allocator(struct AllocatorOptions options) {
                 .size = (uint32_t)(sizeof(struct StackAllocator) - sizeof(struct Allocator))
             },
         },
+        .backing_region = { .base = NULL, .size = 0 },
         .pool = NULL,
         .pool_size = 0,
         .used = 0

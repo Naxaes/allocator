@@ -5,6 +5,7 @@
 
 struct StackAllocator {
     struct Allocator allocator;
+    struct MemoryRegion backing_region;
     uint8_t* pool;
     size_t   pool_size;
     size_t   used;
