@@ -59,16 +59,13 @@ struct SystemAllocator make_system_allocator(struct AllocatorOptions options) {
             .reallocate = system_reallocate,
             .deallocate = system_free,
             .destroy = system_destroy,
-            .name = options.name ? options.name : "SystemAllocator",
-            .parent = options.parent.id != 0 ? options.parent : MAIN_ALLOCATOR_HANDLE,
+            .parent = options.parent ? options.parent : get_current_allocator(),
             .flag = {
                 .oom_strategy = oom_strategy,
-                .supports_reallocation = 1,
-                .supports_deallocation = 1,
                 .is_thread_safe = 1,
-                .alignment = alignment
+                .alignment = alignment,
+                .size = (uint32_t)(sizeof(struct SystemAllocator) - sizeof(struct Allocator))
             },
-            .size = (uint32_t)(sizeof(struct SystemAllocator) - sizeof(struct Allocator))
         }
     };
 }

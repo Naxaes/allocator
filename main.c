@@ -19,16 +19,15 @@ static void assert_region_alignment(struct MemoryRegion region) {
 int main(void) {
     const size_t startup_allocations[] = { 1, 3, 5, 1024, 2048, 4096 };
 
-    const struct SystemAllocator system_allocator = make_system_allocator((struct AllocatorOptions){ 0 });
+    struct SystemAllocator system_allocator = make_system_allocator((struct AllocatorOptions){ 0 });
     printf("System allocator created!\n");
-    const struct AllocatorHandle system_allocator_handle = push_allocator(&system_allocator.allocator);
+    push_allocator(&system_allocator.allocator);
 
-    const struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){ .parent=system_allocator_handle, .oom_strategy=OOM_STRATEGY_GROW});
-    const struct AllocatorHandle stack_handle = push_allocator(&stack_allocator.allocator);
-    printf("Pushed stack allocator with handle id %u\n", stack_handle.id);
+    struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){ .parent=(struct Allocator*)&system_allocator, .oom_strategy=OOM_STRATEGY_GROW});
+    push_allocator(&stack_allocator.allocator);
 
     for (size_t i = 0; i < sizeof(startup_allocations) / sizeof(startup_allocations[0]); ++i) {
-        const struct MemoryRegion region = allocate_from(stack_handle, startup_allocations[i]);
+        const struct MemoryRegion region = allocate_from((struct Allocator*)&stack_allocator, startup_allocations[i]);
         assert_region_alignment(region);
         print_region("Allocated memory", region);
     }
@@ -38,6 +37,6 @@ int main(void) {
     print_region("Allocated memory from current allocator", current_region);
 
     pop_allocator();
-    allocator_cleanup();
+    pop_allocator();
     return 0;
 }

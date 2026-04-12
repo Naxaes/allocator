@@ -21,47 +21,35 @@ typedef struct MemoryRegion (*ReallocateFn)(struct Allocator *, struct MemoryReg
 typedef void (*DeallocateFn)(struct Allocator *, struct MemoryRegion);
 typedef void (*DestroyFn)(struct Allocator *);
 
-struct AllocatorHandle {
-    uint32_t id;
-};
-
 struct Allocator {
-    AllocateFn allocate;
-    ReallocateFn reallocate;
-    DeallocateFn deallocate;
-    DestroyFn destroy;
-    const char* name;
-    struct AllocatorHandle parent;
-    struct AllocatorHandle previous;
+    AllocateFn   allocate;      // Required
+    ReallocateFn reallocate;    // Nullable
+    DeallocateFn deallocate;    // Nullable
+    DestroyFn    destroy;       // Nullable
+    struct Allocator* parent;   // Nullable
     struct {
         uint32_t oom_strategy : 2,
-                 supports_reallocation : 1,
-                 supports_deallocation : 1,
                  is_thread_safe : 1,
-                 alignment : 16,
+                 alignment : 5,
+                 size: 12,
                  id : 11;
     } flag;
-    uint32_t size;
 };
 
 struct AllocatorOptions {
     const char* name;
-    struct AllocatorHandle parent;
+    struct Allocator* parent;
     uint8_t oom_strategy;
     uint32_t alignment;
 };
 
-extern const struct AllocatorHandle MAIN_ALLOCATOR_HANDLE;
-
-struct AllocatorHandle push_allocator(const struct Allocator *allocator);
+void push_allocator(struct Allocator* allocator);
 struct Allocator* get_current_allocator(void);
-struct Allocator* get_allocator(struct AllocatorHandle handle);
 void pop_allocator(void);
-void allocator_cleanup(void);
 
-struct MemoryRegion allocate_from(struct AllocatorHandle handle, size_t size);
-struct MemoryRegion reallocate_from(struct AllocatorHandle handle, struct MemoryRegion region, size_t new_size);
-void deallocate_from(struct AllocatorHandle handle, struct MemoryRegion region);
+struct MemoryRegion allocate_from(struct Allocator* allocator, size_t size);
+struct MemoryRegion reallocate_from(struct Allocator* allocator, struct MemoryRegion region, size_t new_size);
+void deallocate_from(struct Allocator* allocator, struct MemoryRegion region);
 
 struct MemoryRegion allocate(size_t size);
 struct MemoryRegion reallocate(struct MemoryRegion region, size_t new_size);

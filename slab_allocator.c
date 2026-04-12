@@ -183,17 +183,13 @@ struct SlabAllocator make_slab_allocator(struct SlabAllocatorOptions options) {
             .reallocate = NULL,
             .deallocate = slab_deallocate,
             .destroy = slab_destroy,
-            .name = options.allocator_options.name ? options.allocator_options.name : "SlabAllocator",
-            .parent = options.allocator_options.parent,
-            .previous = MAIN_ALLOCATOR_HANDLE,
+            .parent = options.allocator_options.parent ? options.allocator_options.parent : get_current_allocator(),
             .flag = {
                 .oom_strategy = oom_strategy,
-                .supports_reallocation = 0,
-                .supports_deallocation = 1,
                 .is_thread_safe = 0,
                 .alignment = (uint32_t)effective_alignment,
+                .size = (uint32_t)(sizeof(struct SlabAllocator) - sizeof(struct Allocator))
             },
-            .size = (uint32_t)(sizeof(struct SlabAllocator) - sizeof(struct Allocator))
         },
         .slabs = NULL,
         .slot_size = options.slot_size,

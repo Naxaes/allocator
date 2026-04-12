@@ -143,17 +143,13 @@ struct PoolAllocator make_pool_allocator(struct PoolAllocatorOptions options) {
             .reallocate = NULL,
             .deallocate = pool_deallocate,
             .destroy = pool_destroy,
-            .name = options.allocator_options.name ? options.allocator_options.name : "PoolAllocator",
             .parent = options.allocator_options.parent,
-            .previous = MAIN_ALLOCATOR_HANDLE,
             .flag = {
                 .oom_strategy = oom_strategy,
-                .supports_reallocation = 0,
-                .supports_deallocation = 1,
                 .is_thread_safe = 0,
                 .alignment = (uint32_t)effective_alignment,
+                .size = (uint32_t)(sizeof(struct PoolAllocator) - sizeof(struct Allocator))
             },
-            .size = (uint32_t)(sizeof(struct PoolAllocator) - sizeof(struct Allocator))
         },
         .backing_region = { .base = NULL, .size = 0 },
         .pool_start = NULL,

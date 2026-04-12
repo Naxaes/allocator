@@ -119,17 +119,13 @@ struct StackAllocator make_stack_allocator(struct AllocatorOptions options) {
             .reallocate = NULL,
             .deallocate = NULL,
             .destroy = stack_allocator_destroy,
-            .name = options.name ? options.name : "StackAllocator",
-            .parent = options.parent,
-            .previous = MAIN_ALLOCATOR_HANDLE,
+            .parent = options.parent ? options.parent : get_current_allocator(),
             .flag = {
                 .oom_strategy = options.oom_strategy,
-                .supports_reallocation = 0,
-                .supports_deallocation = 0,
                 .is_thread_safe = 0,
-                .alignment = options.alignment ? options.alignment : (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT
+                .alignment = options.alignment ? options.alignment : (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+                .size = (uint32_t)(sizeof(struct StackAllocator) - sizeof(struct Allocator))
             },
-            .size = (uint32_t)(sizeof(struct StackAllocator) - sizeof(struct Allocator))
         },
         .pool = NULL,
         .pool_size = 0,
