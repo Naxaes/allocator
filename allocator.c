@@ -1,18 +1,10 @@
 #include "allocator.h"
 
 #include <assert.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stddef.h>
 
 
 static struct Allocator* current_allocator = NULL;
-
-
-struct AllocatorAlignmentProbe {
-    char padding;
-    struct Allocator value;
-};
-#define ALLOCATOR_RECORD_ALIGNMENT ((size_t)offsetof(struct AllocatorAlignmentProbe, value))
 
 
 void push_allocator(struct Allocator* allocator) {
@@ -36,33 +28,39 @@ void pop_allocator(void) {
 
 
 struct MemoryRegion allocate_from(struct Allocator* allocator, size_t size) {
+    assert(allocator != NULL);
     assert(size > 0);
     return allocator->allocate(allocator, size);
 }
 
 struct MemoryRegion reallocate_from(struct Allocator* allocator, struct MemoryRegion region, size_t new_size) {
+    assert(allocator != NULL);
     assert(new_size > 0);
     assert(allocator->reallocate != NULL && "Allocator doesn't support reallocation!");
     return allocator->reallocate(allocator, region, new_size);
 }
 
 void deallocate_from(struct Allocator* allocator, struct MemoryRegion region) {
+    assert(allocator != NULL);
     assert(allocator->deallocate != NULL && "Allocator doesn't support deallocation!");
     allocator->deallocate(allocator, region);
 }
 
 struct MemoryRegion allocate(size_t size) {
     struct Allocator* allocator = get_current_allocator();
-    return allocator->allocate(current_allocator, size);
+    assert(allocator != NULL && "No current allocator has been pushed!");
+    return allocate_from(allocator, size);
 }
 
 struct MemoryRegion reallocate(struct MemoryRegion region, size_t new_size) {
     struct Allocator* allocator = get_current_allocator();
-    return allocator->reallocate(current_allocator, region, new_size);
+    assert(allocator != NULL && "No current allocator has been pushed!");
+    return reallocate_from(allocator, region, new_size);
 }
 
 void deallocate(struct MemoryRegion region) {
     struct Allocator* allocator = get_current_allocator();
-    allocator->deallocate(current_allocator, region);
+    assert(allocator != NULL && "No current allocator has been pushed!");
+    deallocate_from(allocator, region);
 }
 

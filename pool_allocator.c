@@ -143,7 +143,7 @@ struct PoolAllocator make_pool_allocator(struct PoolAllocatorOptions options) {
             .reallocate = NULL,
             .deallocate = pool_deallocate,
             .destroy = pool_destroy,
-            .parent = options.allocator_options.parent,
+            .parent = options.allocator_options.parent ? options.allocator_options.parent : get_current_allocator(),
             .flag = {
                 .oom_strategy = oom_strategy,
                 .is_thread_safe = 0,

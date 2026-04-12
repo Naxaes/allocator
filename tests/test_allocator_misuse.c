@@ -15,83 +15,83 @@ static struct AllocatorOptions default_system_options(void) {
 }
 
 static int run_current_without_push(void) {
-    (void)get_current_allocator();
+    (void)allocate(16);
     return 0;
 }
 
 static int run_zero_size_allocate(void) {
-    const struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
-    const struct AllocatorHandle system_handle = push_allocator(&system_allocator.allocator);
+    struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
+    push_allocator(&system_allocator.allocator);
 
-    (void)allocate_from(system_handle, 0);
+    (void)allocate_from(&system_allocator.allocator, 0);
     return 0;
 }
 
 static int run_stack_reallocate_unsupported(void) {
-    const struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
-    const struct AllocatorHandle system_handle = push_allocator(&system_allocator.allocator);
-    const struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
-        .parent = system_handle,
+    struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
+    push_allocator(&system_allocator.allocator);
+    struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
+        .parent = &system_allocator.allocator,
         .oom_strategy = OOM_STRATEGY_GROW,
         .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
     });
-    const struct AllocatorHandle stack_handle = push_allocator(&stack_allocator.allocator);
-    const struct MemoryRegion region = allocate_from(stack_handle, 32);
+    push_allocator(&stack_allocator.allocator);
+    const struct MemoryRegion region = allocate(32);
 
-    (void)reallocate_from(stack_handle, region, 64);
+    (void)reallocate(region, 64);
     return 0;
 }
 
 static int run_stack_deallocate_unsupported(void) {
-    const struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
-    const struct AllocatorHandle system_handle = push_allocator(&system_allocator.allocator);
-    const struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
-        .parent = system_handle,
+    struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
+    push_allocator(&system_allocator.allocator);
+    struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
+        .parent = &system_allocator.allocator,
         .oom_strategy = OOM_STRATEGY_GROW,
         .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
     });
-    const struct AllocatorHandle stack_handle = push_allocator(&stack_allocator.allocator);
-    const struct MemoryRegion region = allocate_from(stack_handle, 32);
+    push_allocator(&stack_allocator.allocator);
+    const struct MemoryRegion region = allocate(32);
 
-    deallocate_from(stack_handle, region);
+    deallocate(region);
     return 0;
 }
 
 static int run_pool_reallocate_unsupported(void) {
-    const struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
-    const struct AllocatorHandle system_handle = push_allocator(&system_allocator.allocator);
-    const struct PoolAllocator pool_allocator = make_pool_allocator((struct PoolAllocatorOptions){
+    struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
+    push_allocator(&system_allocator.allocator);
+    struct PoolAllocator pool_allocator = make_pool_allocator((struct PoolAllocatorOptions){
         .allocator_options = {
-            .parent = system_handle,
+            .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_PANIC,
             .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
         },
         .slot_size = 32,
         .capacity = 2,
     });
-    const struct AllocatorHandle pool_handle = push_allocator(&pool_allocator.allocator);
-    const struct MemoryRegion region = allocate_from(pool_handle, 16);
+    push_allocator(&pool_allocator.allocator);
+    const struct MemoryRegion region = allocate(16);
 
-    (void)reallocate_from(pool_handle, region, 24);
+    (void)reallocate(region, 24);
     return 0;
 }
 
 static int run_slab_reallocate_unsupported(void) {
-    const struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
-    const struct AllocatorHandle system_handle = push_allocator(&system_allocator.allocator);
-    const struct SlabAllocator slab_allocator = make_slab_allocator((struct SlabAllocatorOptions){
+    struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
+    push_allocator(&system_allocator.allocator);
+    struct SlabAllocator slab_allocator = make_slab_allocator((struct SlabAllocatorOptions){
         .allocator_options = {
-            .parent = system_handle,
+            .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_GROW,
             .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
         },
         .slot_size = 32,
         .slots_per_slab = 2,
     });
-    const struct AllocatorHandle slab_handle = push_allocator(&slab_allocator.allocator);
-    const struct MemoryRegion region = allocate_from(slab_handle, 16);
+    push_allocator(&slab_allocator.allocator);
+    const struct MemoryRegion region = allocate(16);
 
-    (void)reallocate_from(slab_handle, region, 24);
+    (void)reallocate(region, 24);
     return 0;
 }
 

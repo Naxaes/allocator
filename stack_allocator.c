@@ -113,6 +113,13 @@ static void stack_allocator_destroy(struct Allocator *allocator) {
 }
 
 struct StackAllocator make_stack_allocator(struct AllocatorOptions options) {
+    const uint8_t oom_strategy = options.oom_strategy != 0
+            ? options.oom_strategy
+            : OOM_STRATEGY_PANIC;
+    const uint32_t alignment = options.alignment != 0
+            ? options.alignment
+            : (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT;
+
     return (struct StackAllocator){
         .allocator = {
             .allocate = stack_allocate,
@@ -121,9 +128,9 @@ struct StackAllocator make_stack_allocator(struct AllocatorOptions options) {
             .destroy = stack_allocator_destroy,
             .parent = options.parent ? options.parent : get_current_allocator(),
             .flag = {
-                .oom_strategy = options.oom_strategy,
+                .oom_strategy = oom_strategy,
                 .is_thread_safe = 0,
-                .alignment = options.alignment ? options.alignment : (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
+                .alignment = alignment,
                 .size = (uint32_t)(sizeof(struct StackAllocator) - sizeof(struct Allocator))
             },
         },

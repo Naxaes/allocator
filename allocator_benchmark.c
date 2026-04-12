@@ -194,24 +194,23 @@ static struct BenchmarkResult benchmark_malloc_baseline(size_t operations, size_
 
 static struct AllocatorOptions default_system_options(void) {
     return (struct AllocatorOptions){
-        .name = "BenchmarkSystemAllocator",
         .oom_strategy = OOM_STRATEGY_PANIC,
         .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
     };
 }
 
 static struct BenchmarkResult benchmark_system_allocator(size_t operations, size_t allocation_size) {
-    const struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
-    const struct AllocatorHandle system_handle = push_allocator(&system_allocator.allocator);
+    struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
+    push_allocator(&system_allocator.allocator);
     const uint64_t start = now_ns();
 
     for (size_t i = 0; i < operations; ++i) {
-        struct MemoryRegion region = allocate_from(system_handle, allocation_size);
+        struct MemoryRegion region = allocate(allocation_size);
         touch_region(region, i);
-        deallocate_from(system_handle, region);
+        deallocate(region);
     }
 
-    allocator_cleanup();
+    pop_allocator();
     return (struct BenchmarkResult){
         .name = "allocator api system",
         .operations = operations,
@@ -222,28 +221,27 @@ static struct BenchmarkResult benchmark_system_allocator(size_t operations, size
 static struct BenchmarkResult benchmark_stack_allocator(size_t operations, size_t allocation_size) {
     const size_t batch_size = 256;
     const size_t batches = ceil_div_size(operations, batch_size);
-    const struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
-    const struct AllocatorHandle system_handle = push_allocator(&system_allocator.allocator);
+    struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
+    push_allocator(&system_allocator.allocator);
     const uint64_t start = now_ns();
 
     for (size_t batch = 0; batch < batches; ++batch) {
-        const struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
-            .name = "BenchmarkStackAllocator",
-            .parent = system_handle,
+        struct StackAllocator stack_allocator = make_stack_allocator((struct AllocatorOptions){
+            .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_GROW,
             .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
         });
-        const struct AllocatorHandle stack_handle = push_allocator(&stack_allocator.allocator);
+        push_allocator(&stack_allocator.allocator);
 
         for (size_t i = 0; i < batch_size; ++i) {
-            const struct MemoryRegion region = allocate_from(stack_handle, allocation_size);
+            const struct MemoryRegion region = allocate(allocation_size);
             touch_region(region, batch * batch_size + i);
         }
 
         pop_allocator();
     }
 
-    allocator_cleanup();
+    pop_allocator();
     return (struct BenchmarkResult){
         .name = "stack batch allocate",
         .operations = batches * batch_size,
@@ -254,19 +252,18 @@ static struct BenchmarkResult benchmark_stack_allocator(size_t operations, size_
 static struct BenchmarkResult benchmark_pool_allocator(size_t operations, size_t allocation_size) {
     const uint32_t capacity = 256;
     const size_t batches = ceil_div_size(operations, capacity);
-    const struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
-    const struct AllocatorHandle system_handle = push_allocator(&system_allocator.allocator);
-    const struct PoolAllocator pool_allocator = make_pool_allocator((struct PoolAllocatorOptions){
+    struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
+    push_allocator(&system_allocator.allocator);
+    struct PoolAllocator pool_allocator = make_pool_allocator((struct PoolAllocatorOptions){
         .allocator_options = {
-            .name = "BenchmarkPoolAllocator",
-            .parent = system_handle,
+            .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_PANIC,
             .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
         },
         .slot_size = allocation_size,
         .capacity = capacity,
     });
-    const struct AllocatorHandle pool_handle = push_allocator(&pool_allocator.allocator);
+    push_allocator(&pool_allocator.allocator);
     struct MemoryRegion *regions = malloc(sizeof(*regions) * capacity);
     const uint64_t start = now_ns();
 
@@ -277,16 +274,17 @@ static struct BenchmarkResult benchmark_pool_allocator(size_t operations, size_t
 
     for (size_t batch = 0; batch < batches; ++batch) {
         for (uint32_t i = 0; i < capacity; ++i) {
-            regions[i] = allocate_from(pool_handle, allocation_size);
+            regions[i] = allocate(allocation_size);
             touch_region(regions[i], batch * capacity + i);
         }
         for (uint32_t i = 0; i < capacity; ++i) {
-            deallocate_from(pool_handle, regions[i]);
+            deallocate(regions[i]);
         }
     }
 
     free(regions);
-    allocator_cleanup();
+    pop_allocator();
+    pop_allocator();
     return (struct BenchmarkResult){
         .name = "pool alloc/free",
         .operations = batches * (size_t)capacity,
@@ -298,19 +296,18 @@ static struct BenchmarkResult benchmark_slab_allocator(size_t operations, size_t
     const uint32_t slots_per_slab = 128;
     const uint32_t working_set = 512;
     const size_t batches = ceil_div_size(operations, working_set);
-    const struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
-    const struct AllocatorHandle system_handle = push_allocator(&system_allocator.allocator);
-    const struct SlabAllocator slab_allocator = make_slab_allocator((struct SlabAllocatorOptions){
+    struct SystemAllocator system_allocator = make_system_allocator(default_system_options());
+    push_allocator(&system_allocator.allocator);
+    struct SlabAllocator slab_allocator = make_slab_allocator((struct SlabAllocatorOptions){
         .allocator_options = {
-            .name = "BenchmarkSlabAllocator",
-            .parent = system_handle,
+            .parent = &system_allocator.allocator,
             .oom_strategy = OOM_STRATEGY_GROW,
             .alignment = (uint32_t)ALLOCATOR_DEFAULT_ALIGNMENT,
         },
         .slot_size = allocation_size,
         .slots_per_slab = slots_per_slab,
     });
-    const struct AllocatorHandle slab_handle = push_allocator(&slab_allocator.allocator);
+    push_allocator(&slab_allocator.allocator);
     struct MemoryRegion *regions = malloc(sizeof(*regions) * working_set);
     const uint64_t start = now_ns();
 
@@ -321,16 +318,17 @@ static struct BenchmarkResult benchmark_slab_allocator(size_t operations, size_t
 
     for (size_t batch = 0; batch < batches; ++batch) {
         for (uint32_t i = 0; i < working_set; ++i) {
-            regions[i] = allocate_from(slab_handle, allocation_size);
+            regions[i] = allocate(allocation_size);
             touch_region(regions[i], batch * working_set + i);
         }
         for (uint32_t i = 0; i < working_set; ++i) {
-            deallocate_from(slab_handle, regions[i]);
+            deallocate(regions[i]);
         }
     }
 
     free(regions);
-    allocator_cleanup();
+    pop_allocator();
+    pop_allocator();
     return (struct BenchmarkResult){
         .name = "slab alloc/free",
         .operations = batches * (size_t)working_set,
