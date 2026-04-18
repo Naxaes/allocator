@@ -23,7 +23,9 @@ set(ALLOCATORS_CORE_SOURCES
 		stack_allocator.c
 )
 
-add_executable(allocators main.c ${ALLOCATORS_CORE_SOURCES})
+add_executable(allocators main.c ${ALLOCATORS_CORE_SOURCES}
+		src/allocators.h
+		src/arena.h)
 add_executable(allocators_leakcheck main.c ${ALLOCATORS_CORE_SOURCES})
 add_executable(allocators_benchmark allocator_benchmark.c ${ALLOCATORS_CORE_SOURCES})
 add_executable(allocators_tests tests/test_allocator_suite.c ${ALLOCATORS_CORE_SOURCES})
