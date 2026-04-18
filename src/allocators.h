@@ -1,5 +1,6 @@
 #ifndef ALLOCATORS_ALLOCATORS_H
 #define ALLOCATORS_ALLOCATORS_H
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -13,7 +14,7 @@ typedef struct Memory Memory;
 typedef void* __attribute__((aligned(16))) Allocator;
 
 
-
+static Allocator* allocator_current(void);
 
 
 
@@ -43,6 +44,7 @@ struct AllocatorFunctionTable {
     DestroyFn    destroy;
 } allocator_function_kinds[16];
 static int allocator_function_kinds_count = 0;
+
 
 
 
@@ -202,11 +204,47 @@ static inline void allocator_destroy(Allocator allocator, const char* file, cons
 }
 
 
+#define Z_CONCATENATE(arg1, arg2) arg1##arg2
+#define Z_POP_10TH_ARG(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, argN, ...) argN
+#define Z_VA_ARGS_COUNT(...)  Z_POP_10TH_ARG(__VA_ARGS__, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+#define Z_SELECT_FUNCTION(function, postfix) Z_CONCATENATE(function, postfix)
+#define Z_WITH_DEFAULTS(f, ...) Z_SELECT_FUNCTION(f, Z_VA_ARGS_COUNT(__VA_ARGS__))(__VA_ARGS__)
 
-#define allocate(allocator, size, alignment) allocator_alloc(allocator, size, alignment, __FILE_NAME__, __func__, __LINE__)
-#define reallocate(allocator, old_memory, new_size, alignment) allocator_realloc(allocator, old_memory, new_size, alignment, __FILE_NAME__, __func__, __LINE__)
-#define deallocate(allocator, memory) allocator_dealloc(allocator, memory, __FILE_NAME__, __func__, __LINE__)
-#define destroy_allocator(allocator) allocator_destroy(allocator, __FILE_NAME__, __func__, __LINE__)
+/* ---- DEFAULT ARGUMENTS ----
+Wrap the function in a variadic macro that calls to WITH_DEFAULTS with a
+name and __VA_ARGS__. For each parameter passed in it'll now dispatch
+to macros (or functions) named "nameX", where X is the number of parameters.
+
+    // Define the dispatcher.
+    #define greet(...) WITH_DEFAULTS(greet, __VA_ARGS__)
+
+    // Define the overloaded functions (or function-like macros) you want.
+    #define greet1(name)           printf("%s %s!", "Hello", name)
+    #define greet2(greeting, name) printf("%s %s!", greeting, name)
+
+    // Call.
+    greet("Sailor");                      // printf("%s %s!", "Hello",     "Sailor");
+    greet("Greetings", "Sailor");         // printf("%s %s!", "Greetings", "Sailor");
+    greet("Greetings", "Sailor", "!!!");  // Error: greet3 is not defined.
+
+This is restricted to a minimum of 1 argument and a maximum of 8.
+*/
+
+#define allocate(...)          Z_WITH_DEFAULTS(allocate, __VA_ARGS__)
+#define reallocate(...)        Z_WITH_DEFAULTS(reallocate, __VA_ARGS__)
+#define deallocate(...)        Z_WITH_DEFAULTS(deallocate, __VA_ARGS__)
+#define destroy_allocator(...) Z_WITH_DEFAULTS(destroy_allocator, __VA_ARGS__)
+
+#define allocate3(allocator, size, alignment) allocator_alloc(allocator, size, alignment, __FILE_NAME__, __func__, __LINE__)
+#define reallocate4(allocator, old_memory, new_size, alignment) allocator_realloc(allocator, old_memory, new_size, alignment, __FILE_NAME__, __func__, __LINE__)
+#define deallocate2(allocator, memory) allocator_dealloc(allocator, memory, __FILE_NAME__, __func__, __LINE__)
+#define destroy_allocator1(allocator) allocator_destroy(allocator, __FILE_NAME__, __func__, __LINE__)
+
+#define allocate2(size, alignment) allocator_alloc(allocator_current(), size, alignment, __FILE_NAME__, __func__, __LINE__)
+#define reallocate3(old_memory, new_size, alignment) allocator_realloc(allocator_current(), old_memory, new_size, alignment, __FILE_NAME__, __func__, __LINE__)
+#define deallocate1(memory) allocator_dealloc(allocator_current(), memory, __FILE_NAME__, __func__, __LINE__)
+#define destroy_allocator0() allocator_destroy(allocator_current(), __FILE_NAME__, __func__, __LINE__)
+
 
 #endif
 
@@ -239,6 +277,59 @@ static inline int allocator_register_kind(AllocatorFunctionTable table) {
     return allocator_function_kinds_count++;
 }
 
+
+
+static Allocator* allocators = NULL;
+static size_t allocators_count = 0;
+static size_t allocators_capacity = 0;
+
+
+#define with_allocator(allocator) for (int _allocator_with_it = allocator_push(allocator); _allocator_with_it; allocator_pop(), _allocator_with_it = 0)
+
+static int allocator_push(Allocator allocator) {
+    if (allocators_count >= allocators_capacity) {
+        if (allocators == NULL) {
+            Memory result = allocate(allocators, 8 * sizeof(Allocator), 16);
+            allocators = result.base;
+            allocators_capacity = result.size / sizeof(Allocator);
+        } else {
+            size_t new_capacity = allocators_capacity * 2;
+            Memory old_memory = { .base = allocators, .size = allocators_capacity * sizeof(Allocator) };
+            Memory result = reallocate(allocators, old_memory, new_capacity * sizeof(Allocator), 16);
+            allocators = result.base;
+            allocators_capacity = result.size / sizeof(Allocator);
+        }
+        allocators[allocators_count++] = allocator;
+        return 1;
+    } else {
+        assert(allocators_count < allocators_capacity);
+        assert(allocators != NULL);
+        allocators[allocators_count++] = allocator;
+        return 1;
+    }
+}
+
+static void allocator_pop(void) {
+    if (allocators_count > 0) {
+        allocators[--allocators_count] = NULL;
+    }
+}
+
+static Allocator* allocator_current(void) {
+    if (allocators_count < allocators_capacity) {
+        return &allocators[allocators_count - 1];
+    } else {
+        return NULL;
+    }
+}
+
+static Allocator* allocator_get(size_t index) {
+    if (index < allocators_count) {
+        return &allocators[index];
+    } else {
+        return NULL;
+    }
+}
 
 
 
@@ -293,3 +384,4 @@ inline void destroy_system(Allocator allocator) {
 
 
 #endif //ALLOCATORS_ALLOCATORS_H
+

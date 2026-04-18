@@ -3,8 +3,6 @@
 
 
 
-static int arena_allocator_kind;
-
 
 typedef struct ArenaAllocator {
     Allocator parent;
@@ -93,6 +91,18 @@ static void arena_destroy(Allocator allocator) {
         Memory old_memory = { .base = arena->base, .size = arena->size };
         deallocate(allocator, old_memory);
     }
+}
+
+
+static int arena_allocator_kind;
+static int arena_allocator_initialize(void) {
+    arena_allocator_kind = allocator_register_kind((AllocatorFunctionTable) {
+        .allocate = arena_allocate,
+        .reallocate = arena_reallocate,
+        .deallocate = arena_deallocate,
+        .destroy = arena_destroy,
+    });
+    return arena_allocator_kind;
 }
 
 

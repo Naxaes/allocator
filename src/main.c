@@ -12,13 +12,12 @@ int main(void) {
         .deallocate = deallocate_system,
         .destroy = destroy_system,
     });
+    allocator_push(0);
 
-    arena_allocator_kind = allocator_register_kind((AllocatorFunctionTable) {
-        .allocate = arena_allocate,
-        .reallocate = arena_reallocate,
-        .deallocate = arena_deallocate,
-        .destroy = arena_destroy,
-    });
+    Memory x = allocate(1025, 8);
+    printf("%p with size %zu\n", x.base, x.size);
+
+    arena_allocator_initialize();
 
     ArenaAllocator arena = arena_make(.parent = 0);
     Allocator allocator = allocator_to_base(&arena, arena_allocator_kind);
