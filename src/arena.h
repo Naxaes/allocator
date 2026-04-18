@@ -5,6 +5,7 @@
 
 static int arena_allocator_kind;
 
+
 typedef struct ArenaAllocator {
     Allocator parent;
     void*     base;
@@ -19,8 +20,8 @@ struct ArenaAllocatorOptions {
 
 #define arena_make(...) arena_make_with_options((struct ArenaAllocatorOptions){ 0, __VA_ARGS__ })
 
-ArenaAllocator arena_make_with_options(struct ArenaAllocatorOptions options) {
-    return (ArenaAllocator){
+static ArenaAllocator arena_make_with_options(struct ArenaAllocatorOptions options) {
+    return (ArenaAllocator) {
         .parent = options.parent,
         .base = NULL,
         .size = 0,
@@ -29,8 +30,8 @@ ArenaAllocator arena_make_with_options(struct ArenaAllocatorOptions options) {
 }
 
 
-Memory arena_allocate(Allocator allocator, size_t size, size_t alignment) {
-    ArenaAllocator* arena = (ArenaAllocator*)allocator;
+static Memory arena_allocate(Allocator allocator, size_t size, size_t alignment) {
+    ArenaAllocator* arena = allocator;
     size_t offset = (size_t)arena->base + arena->used;
     size_t aligned_offset = (offset + alignment - 1) & ~(alignment - 1);
     size_t padding = aligned_offset - offset;
@@ -41,29 +42,57 @@ Memory arena_allocate(Allocator allocator, size_t size, size_t alignment) {
         size_t base_alignment = 16;
         Memory result = reallocate(allocator, old_memory, new_size, base_alignment);
         if (result.base == NULL) {
-            return (Memory){ 0 };
+            return MEMORY_NULL;
         }
     }
 
     arena->used += padding + size;
-    return (Memory){ .base = (void*)aligned_offset, .size = size };
+    return (Memory) { .base = (void*)aligned_offset, .size = size };
 }
 
-Memory arena_reallocate(Allocator allocator, Memory memory, size_t new_size, size_t alignment) {
-    (void)allocator;
-    (void)memory;
-    (void)new_size;
-    (void)alignment;
-    return (Memory){ 0 };
+// Reallocates if the memory points to the last allocated memory, otherwise does nothing.
+static Memory arena_reallocate(Allocator allocator, Memory memory, size_t new_size, size_t alignment) {
+    ArenaAllocator* arena = allocator;
+    size_t end_offset = (size_t)memory.base + memory.size;
+
+    if (end_offset == (size_t)arena->base + arena->used) {
+        size_t offset = (size_t)memory.base;
+        size_t aligned_offset = (offset + alignment - 1) & ~(alignment - 1);
+        size_t padding = aligned_offset - offset;
+
+        if (aligned_offset + new_size > (size_t)arena->base + arena->size) {
+            Memory old_memory = { .base = arena->base, .size = arena->size };
+            size_t new_arena_size = arena->size * 2;
+            size_t base_alignment = 16;
+            Memory result = reallocate(allocator, old_memory, new_arena_size, base_alignment);
+            if (result.base == NULL) {
+                return MEMORY_NULL;
+            }
+        }
+
+        arena->used += padding + (new_size - memory.size);
+        return (Memory) { .base = (void*)aligned_offset, .size = new_size };
+    }
+
+    return MEMORY_NULL;
 }
 
-void arena_deallocate(Allocator allocator, Memory memory) {
-    (void)allocator;
-    (void)memory;
+// Deallocates if the memory points to the last allocated memory, otherwise does nothing.
+static void arena_deallocate(Allocator allocator, Memory memory) {
+    ArenaAllocator* arena = allocator;
+    size_t end_offset = (size_t)memory.base + memory.size;
+
+    if (end_offset == (size_t)arena->base + arena->used) {
+        arena->used -= memory.size;
+    }
 }
 
-void arena_destroy(Allocator allocator) {
-    (void)allocator;
+static void arena_destroy(Allocator allocator) {
+    ArenaAllocator* arena = allocator;
+    if (arena->base != NULL) {
+        Memory old_memory = { .base = arena->base, .size = arena->size };
+        deallocate(allocator, old_memory);
+    }
 }
 
 
