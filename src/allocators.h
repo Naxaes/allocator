@@ -287,26 +287,31 @@ static size_t allocators_capacity = 0;
 #define with_allocator(allocator) for (int _allocator_with_it = allocator_push(allocator); _allocator_with_it; allocator_pop(), _allocator_with_it = 0)
 
 static int allocator_push(Allocator allocator) {
-    if (allocators_count >= allocators_capacity) {
-        if (allocators == NULL) {
-            Memory result = allocate(allocators, 8 * sizeof(Allocator), 16);
-            allocators = result.base;
-            allocators_capacity = result.size / sizeof(Allocator);
-        } else {
-            size_t new_capacity = allocators_capacity * 2;
-            Memory old_memory = { .base = allocators, .size = allocators_capacity * sizeof(Allocator) };
-            Memory result = reallocate(allocators, old_memory, new_capacity * sizeof(Allocator), 16);
-            allocators = result.base;
-            allocators_capacity = result.size / sizeof(Allocator);
-        }
-        allocators[allocators_count++] = allocator;
-        return 1;
-    } else {
+    if (allocators_count < allocators_capacity) {
         assert(allocators_count < allocators_capacity);
         assert(allocators != NULL);
         allocators[allocators_count++] = allocator;
         return 1;
     }
+    if (allocators == NULL) {
+        Memory result = allocate(allocators, 8 * sizeof(Allocator), 16);
+        if (result.base == NULL) {
+            return 0;
+        }
+        allocators = result.base;
+        allocators_capacity = result.size / sizeof(Allocator);
+    } else {
+        size_t new_capacity = allocators_capacity * 2;
+        Memory old_memory = { .base = allocators, .size = allocators_capacity * sizeof(Allocator) };
+        Memory result = reallocate(allocators, old_memory, new_capacity * sizeof(Allocator), 16);
+        if (result.base == NULL) {
+            return 0;
+        }
+        allocators = result.base;
+        allocators_capacity = result.size / sizeof(Allocator);
+    }
+    allocators[allocators_count++] = allocator;
+    return 1;
 }
 
 static void allocator_pop(void) {
