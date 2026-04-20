@@ -1,7 +1,8 @@
 [
 	{
 		"kind": "hook_init",
-		"path": "allocation_log.json"
+		"path": "allocation_log.json",
+		"resolution_ns": "42"
 	},
 	{
 		"kind": "allocation",
@@ -13,8 +14,8 @@
 		"size": "64",
 		"alignment": "16",
 		"allocated_size": "64",
-		"allocated_ptr": "0xc48c04000",
-		"time_ns": "3000"
+		"allocated_ptr": "0xaaec00100",
+		"time_ns": "1291"
 	},
 	{
 		"kind": "allocation",
@@ -26,8 +27,8 @@
 		"size": "1025",
 		"alignment": "8",
 		"allocated_size": "1025",
-		"allocated_ptr": "0xc48c08000",
-		"time_ns": "1000"
+		"allocated_ptr": "0xaaec04000",
+		"time_ns": "1042"
 	},
 	{
 		"kind": "allocation",
@@ -39,8 +40,8 @@
 		"size": "1024",
 		"alignment": "16",
 		"allocated_size": "1024",
-		"allocated_ptr": "0xc49004000",
-		"time_ns": "1000"
+		"allocated_ptr": "0xaaec0c000",
+		"time_ns": "833"
 	},
 	{
 		"kind": "allocation",
@@ -48,12 +49,12 @@
 		"line": "34",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16b2b3070",
+		"allocator_data": "0x16b71f070",
 		"size": "512",
 		"alignment": "8",
 		"allocated_size": "512",
-		"allocated_ptr": "0xc49004000",
-		"time_ns": "2000"
+		"allocated_ptr": "0xaaec0c000",
+		"time_ns": "1583"
 	},
 	{
 		"kind": "allocation",
@@ -61,12 +62,12 @@
 		"line": "37",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16b2b3070",
+		"allocator_data": "0x16b71f070",
 		"size": "512",
 		"alignment": "8",
 		"allocated_size": "512",
-		"allocated_ptr": "0xc49004200",
-		"time_ns": "0"
+		"allocated_ptr": "0xaaec0c200",
+		"time_ns": "41"
 	},
 	{
 		"kind": "reallocation",
@@ -76,11 +77,12 @@
 		"allocator_kind": "0",
 		"allocator_data": "0x0",
 		"old_size": "1024",
-		"old_ptr": "0xc49004000",
+		"old_ptr": "0xaaec0c000",
 		"new_size": "2048",
 		"new_alignment": "16",
 		"allocated_size": "2048",
-		"allocated_ptr": "0xc48c10000"
+		"allocated_ptr": "0xaaf004000",
+		"time_ns": "1250"
 	},
 	{
 		"kind": "allocation",
@@ -88,12 +90,12 @@
 		"line": "40",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16b2b3070",
+		"allocator_data": "0x16b71f070",
 		"size": "512",
 		"alignment": "8",
 		"allocated_size": "512",
-		"allocated_ptr": "0xc48c10400",
-		"time_ns": "2000"
+		"allocated_ptr": "0xaaf004400",
+		"time_ns": "2083"
 	},
 	{
 		"kind": "deallocation",
@@ -101,9 +103,10 @@
 		"line": "43",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16b2b3070",
+		"allocator_data": "0x16b71f070",
 		"deallocated_size": "512",
-		"deallocated_ptr": "0xc49004000"
+		"deallocated_ptr": "0xaaec0c000",
+		"time_ns": "41"
 	},
 	{
 		"kind": "deallocation",
@@ -111,9 +114,10 @@
 		"line": "44",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16b2b3070",
+		"allocator_data": "0x16b71f070",
 		"deallocated_size": "512",
-		"deallocated_ptr": "0xc49004200"
+		"deallocated_ptr": "0xaaec0c200",
+		"time_ns": "42"
 	},
 	{
 		"kind": "deallocation",
@@ -121,9 +125,10 @@
 		"line": "108",
 		"function": "arena_destroy",
 		"allocator_kind": "0",
-		"allocator_data": "0x16b2b3070",
+		"allocator_data": "0x16b71f070",
 		"deallocated_size": "2048",
-		"deallocated_ptr": "0xc48c10000"
+		"deallocated_ptr": "0xaaf004000",
+		"time_ns": "84"
 	},
 	{
 		"kind": "destroy",
@@ -131,6 +136,7 @@
 		"line": "46",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16b2b3070"
+		"allocator_data": "0x16b71f070",
+		"time_ns": "500"
 	}
 ]
