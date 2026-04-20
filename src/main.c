@@ -29,7 +29,7 @@ int main(void) {
     arena_allocator_initialize();
 
     ArenaAllocator arena = arena_make(.parent = 0);
-    Allocator allocator = allocator_to_base(&arena, arena_allocator_kind);
+    Allocator* allocator = allocator_to_base(&arena, arena_allocator_kind);
 
     Memory memory = allocate(allocator, 512, 8);
     printf("%p with size %zu\n", memory.base, memory.size);

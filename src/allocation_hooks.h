@@ -21,10 +21,10 @@ size_t time_ns(void);
 
 int  allocation_hook_init(const char* path);
 void allocation_hook_deinit(void);
-void allocation_post_allocate_hook(Allocator allocator, size_t size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns);
-void allocation_post_realloc_hook(Allocator allocator, Memory memory, size_t new_size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns);
-void allocation_post_deallocate_hook(Allocator allocator, Memory memory, const char* file, const char* function, int line, size_t time_diff_ns);
-void allocation_post_destroy_hook(Allocator allocator, const char* file, const char* function, int line, size_t time_diff_ns);
+void allocation_post_allocate_hook(Allocator* allocator, size_t size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns);
+void allocation_post_realloc_hook(Allocator* allocator, Memory memory, size_t new_size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns);
+void allocation_post_deallocate_hook(Allocator* allocator, Memory memory, const char* file, const char* function, int line, size_t time_diff_ns);
+void allocation_post_destroy_hook(Allocator* allocator, const char* file, const char* function, int line, size_t time_diff_ns);
 
 
 #endif  // ALLOCATION_HOOKS_H
@@ -65,7 +65,7 @@ void allocation_hook_deinit() {
     }
 }
 
-void allocation_post_allocate_hook(Allocator allocator, size_t size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns) {
+void allocation_post_allocate_hook(Allocator* allocator, size_t size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns) {
     assert(allocation_log_file != NULL && "allocation_post_allocate_hook requires allocation_hook_init to be called");
     static const char* format = ",\n\t{\n"
                          "\t\t\"kind\": \"allocation\",\n"
@@ -86,7 +86,7 @@ void allocation_post_allocate_hook(Allocator allocator, size_t size, size_t alig
     fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, size, alignment, result.size, result.base, time_diff_ns);
 }
 
-void allocation_post_realloc_hook(Allocator allocator, Memory memory, size_t new_size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns) {
+void allocation_post_realloc_hook(Allocator* allocator, Memory memory, size_t new_size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns) {
     assert(allocation_log_file != NULL && "allocation_post_realloc_hook requires allocation_hook_init to be called");
     static const char* format = ",\n\t{\n"
                          "\t\t\"kind\": \"reallocation\",\n"
@@ -109,7 +109,7 @@ void allocation_post_realloc_hook(Allocator allocator, Memory memory, size_t new
     fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, memory.size, memory.base, new_size, alignment, result.size, result.base, time_diff_ns);
 }
 
-void allocation_post_deallocate_hook(Allocator allocator, Memory memory, const char* file, const char* function, int line, size_t time_diff_ns) {
+void allocation_post_deallocate_hook(Allocator* allocator, Memory memory, const char* file, const char* function, int line, size_t time_diff_ns) {
     assert(allocation_log_file != NULL && "allocation_post_deallocate_hook requires allocation_hook_init to be called");
     static const char* format = ",\n\t{\n"
                          "\t\t\"kind\": \"deallocation\",\n"
@@ -128,7 +128,7 @@ void allocation_post_deallocate_hook(Allocator allocator, Memory memory, const c
     fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, memory.size, memory.base, time_diff_ns);
 }
 
-void allocation_post_destroy_hook(Allocator allocator, const char* file, const char* function, int line, size_t time_diff_ns) {
+void allocation_post_destroy_hook(Allocator* allocator, const char* file, const char* function, int line, size_t time_diff_ns) {
     assert(allocation_log_file != NULL && "allocation_post_free_hook requires allocation_hook_init to be called");
     static const char* format = ",\n\t{\n"
                          "\t\t\"kind\": \"destroy\",\n"

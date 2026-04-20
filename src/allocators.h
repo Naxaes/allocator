@@ -1,5 +1,5 @@
-#ifndef ALLOCATORS_ALLOCATORS_H
-#define ALLOCATORS_ALLOCATORS_H
+#ifndef ALLOCATORS_H
+#define ALLOCATORS_H
 
 #include "allocator_base.h"
 
@@ -14,10 +14,10 @@ static int allocator_function_kinds_count = 0;
 typedef struct AllocatorFunctionTable AllocatorFunctionTable;
 
 
-Allocator allocator_current(void);
-int allocator_push(Allocator allocator);
+Allocator* allocator_current(void);
+int allocator_push(Allocator* allocator);
 void allocator_pop(void);
-Allocator allocator_get(size_t index);
+Allocator* allocator_get(size_t index);
 int allocator_register_kind(AllocatorFunctionTable table);
 
 #define with_allocator(allocator) for (int _allocator_with_it = allocator_push(allocator); _allocator_with_it; allocator_pop(), _allocator_with_it = 0)
@@ -25,10 +25,10 @@ int allocator_register_kind(AllocatorFunctionTable table);
 
 
 #if ALLOCATOR_DEBUG
-Memory allocator_alloc(Allocator allocator, size_t size, size_t alignment);
-Memory allocator_realloc(Allocator allocator, Memory memory, size_t new_size, size_t alignment);
-void allocator_dealloc(Allocator allocator, Memory memory);
-void allocator_destroy(Allocator allocator);
+Memory allocator_alloc(Allocator* allocator, size_t size, size_t alignment);
+Memory allocator_realloc(Allocator* allocator, Memory memory, size_t new_size, size_t alignment);
+void allocator_dealloc(Allocator* allocator, Memory memory);
+void allocator_destroy(Allocator* allocator);
 
 #define allocate3(allocator, size, alignment) allocator_alloc(allocator, size, alignment)
 #define reallocate4(allocator, old_memory, new_size, alignment) allocator_realloc(allocator, old_memory, new_size, alignment)
@@ -74,7 +74,7 @@ void allocator_destroy(Allocator allocator);
 #define deallocate(allocator, memory) allocator_dealloc(allocator, memory)
 #define destroy_allocator(allocator) allocator_destroy(allocator)
 
-static inline Memory allocator_alloc(Allocator allocator, size_t size, size_t alignment) {
+static inline Memory allocator_alloc(Allocator* allocator, size_t size, size_t alignment) {
     uint8_t   kind = (uintptr_t)allocator & 15;
     uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
@@ -86,7 +86,7 @@ static inline Memory allocator_alloc(Allocator allocator, size_t size, size_t al
     return result;
 }
 
-static inline Memory allocator_realloc(Allocator allocator, Memory memory, size_t new_size, size_t alignment) {
+static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size_t new_size, size_t alignment) {
     uint8_t   kind = (uintptr_t)allocator & 15;
     uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
@@ -98,7 +98,7 @@ static inline Memory allocator_realloc(Allocator allocator, Memory memory, size_
     return result;
 }
 
-static inline void allocator_dealloc(Allocator allocator, Memory memory) {
+static inline void allocator_dealloc(Allocator* allocator, Memory memory) {
     uint8_t   kind = (uintptr_t)allocator & 15;
     uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
@@ -108,7 +108,7 @@ static inline void allocator_dealloc(Allocator allocator, Memory memory) {
     ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory);
 }
 
-static inline void allocator_destroy(Allocator allocator) {
+static inline void allocator_destroy(Allocator* allocator) {
     uint8_t   kind = (uintptr_t)allocator & 15;
     uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
@@ -119,10 +119,10 @@ static inline void allocator_destroy(Allocator allocator) {
 }
 
 #else
-static inline Memory allocator_alloc(Allocator allocator, size_t size, size_t alignment, const char* file, const char* function, int line);
-static inline Memory allocator_realloc(Allocator allocator, Memory memory, size_t new_size, size_t alignment, const char* file, const char* function, int line);
-static inline void allocator_dealloc(Allocator allocator, Memory memory, const char* file, const char* function, int line);
-static inline void allocator_destroy(Allocator allocator, const char* file, const char* function, int line);
+static inline Memory allocator_alloc(Allocator* allocator, size_t size, size_t alignment, const char* file, const char* function, int line);
+static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size_t new_size, size_t alignment, const char* file, const char* function, int line);
+static inline void allocator_dealloc(Allocator* allocator, Memory memory, const char* file, const char* function, int line);
+static inline void allocator_destroy(Allocator* allocator, const char* file, const char* function, int line);
 
 #define allocate3(allocator, size, alignment) allocator_alloc(allocator, size, alignment, __FILE_NAME__, __func__, __LINE__)
 #define reallocate4(allocator, old_memory, new_size, alignment) allocator_realloc(allocator, old_memory, new_size, alignment, __FILE_NAME__, __func__, __LINE__)
@@ -164,7 +164,7 @@ static inline void allocator_destroy(Allocator allocator, const char* file, cons
 #define ALLOCATOR_POST_DESTROY_HOOK(allocator, file, function, line) ((void)allocator, (void)file, (void)function, (void)line)
 #endif
 
-static inline Memory allocator_alloc(Allocator allocator, size_t size, size_t alignment, const char* file, const char* function, int line) {
+static inline Memory allocator_alloc(Allocator* allocator, size_t size, size_t alignment, const char* file, const char* function, int line) {
     uint8_t   kind = (uintptr_t)allocator & 15;
     uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
@@ -176,7 +176,7 @@ static inline Memory allocator_alloc(Allocator allocator, size_t size, size_t al
     return result;
 }
 
-static inline Memory allocator_realloc(Allocator allocator, Memory memory, size_t new_size, size_t alignment, const char* file, const char* function, int line) {
+static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size_t new_size, size_t alignment, const char* file, const char* function, int line) {
     uint8_t   kind = (uintptr_t)allocator & 15;
     uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
@@ -188,7 +188,7 @@ static inline Memory allocator_realloc(Allocator allocator, Memory memory, size_
     return result;
 }
 
-static inline void allocator_dealloc(Allocator allocator, Memory memory, const char* file, const char* function, int line) {
+static inline void allocator_dealloc(Allocator* allocator, Memory memory, const char* file, const char* function, int line) {
     uint8_t   kind = (uintptr_t)allocator & 15;
     uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
@@ -198,7 +198,7 @@ static inline void allocator_dealloc(Allocator allocator, Memory memory, const c
     ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory, file, function, line);
 }
 
-static inline void allocator_destroy(Allocator allocator, const char* file, const char* function, int line) {
+static inline void allocator_destroy(Allocator* allocator, const char* file, const char* function, int line) {
     uint8_t   kind = (uintptr_t)allocator & 15;
     uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
@@ -208,7 +208,7 @@ static inline void allocator_destroy(Allocator allocator, const char* file, cons
     ALLOCATOR_POST_DESTROY_HOOK(allocator, file, function, line);
 }
 
-#endif
+#endif  // ALLOCATOR_DEBUG
 
 
 
@@ -245,7 +245,7 @@ This is restricted to a minimum of 1 argument and a maximum of 8.
 #define destroy_allocator(...) Z_WITH_DEFAULTS(destroy_allocator, __VA_ARGS__)
 
 
-#endif  // ALLOCATORS_ALLOCATORS_H
+#endif  // ALLOCATORS_H
 
 
 
@@ -279,13 +279,13 @@ int allocator_register_kind(AllocatorFunctionTable table) {
 
 
 
-static Allocator* allocators = NULL;
+static Allocator** allocators = NULL;
 static size_t allocators_count = 0;
 static size_t allocators_capacity = 0;
 
 
 
-int allocator_push(Allocator allocator) {
+int allocator_push(Allocator* allocator) {
     if (allocators_count < allocators_capacity) {
         assert(allocators_count < allocators_capacity);
         assert(allocators != NULL);
@@ -293,21 +293,21 @@ int allocator_push(Allocator allocator) {
         return 1;
     }
     if (allocators == NULL) {
-        Memory result = allocate(allocators, 8 * sizeof(Allocator), 16);
+        Memory result = allocate(allocators, 8 * sizeof(Allocator*), 16);
         if (result.base == NULL) {
             return 0;
         }
         allocators = result.base;
-        allocators_capacity = result.size / sizeof(Allocator);
+        allocators_capacity = result.size / sizeof(Allocator*);
     } else {
         size_t new_capacity = allocators_capacity * 2;
-        Memory old_memory = { .base = allocators, .size = allocators_capacity * sizeof(Allocator) };
-        Memory result = reallocate(allocators, old_memory, new_capacity * sizeof(Allocator), 16);
+        Memory old_memory = { .base = allocators, .size = allocators_capacity * sizeof(Allocator*) };
+        Memory result = reallocate(allocators, old_memory, new_capacity * sizeof(Allocator*), 16);
         if (result.base == NULL) {
             return 0;
         }
         allocators = result.base;
-        allocators_capacity = result.size / sizeof(Allocator);
+        allocators_capacity = result.size / sizeof(Allocator*);
     }
     allocators[allocators_count++] = allocator;
     return 1;
@@ -319,7 +319,7 @@ void allocator_pop(void) {
     }
 }
 
-Allocator allocator_current(void) {
+Allocator* allocator_current(void) {
     if (allocators_count < allocators_capacity) {
         return allocators[allocators_count - 1];
     } else {
@@ -327,7 +327,7 @@ Allocator allocator_current(void) {
     }
 }
 
-Allocator allocator_get(size_t index) {
+Allocator* allocator_get(size_t index) {
     if (index < allocators_count) {
         return allocators[index];
     } else {
@@ -336,10 +336,5 @@ Allocator allocator_get(size_t index) {
 }
 
 
-
-
-
-
-
-#endif //ALLOCATORS_ALLOCATORS_H
+#endif // ALLOCATORS_IMPLEMENTATION
 

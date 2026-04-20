@@ -5,15 +5,15 @@
 
 
 typedef struct ArenaAllocator {
-    Allocator parent;
-    void*     base;
-    size_t    size;
-    size_t    used;
+    Allocator* parent;
+    void*      base;
+    size_t     size;
+    size_t     used;
 } ArenaAllocator;
 
 struct ArenaAllocatorOptions {
     int reserved;
-    Allocator parent;
+    Allocator* parent;
 };
 
 #define arena_make(...) arena_make_with_options((struct ArenaAllocatorOptions){ 0, __VA_ARGS__ })
@@ -28,8 +28,8 @@ static ArenaAllocator arena_make_with_options(struct ArenaAllocatorOptions optio
 }
 
 
-static Memory arena_allocate(Allocator allocator, size_t size, size_t alignment) {
-    ArenaAllocator* arena = allocator;
+static Memory arena_allocate(Allocator* allocator, size_t size, size_t alignment) {
+    ArenaAllocator* arena = (ArenaAllocator*)allocator;
     size_t offset = (size_t)arena->base + arena->used;
     size_t aligned_offset = (offset + alignment - 1) & ~(alignment - 1);
     size_t padding = aligned_offset - offset;
@@ -65,8 +65,8 @@ static Memory arena_allocate(Allocator allocator, size_t size, size_t alignment)
 }
 
 // Reallocates if the memory points to the last allocated memory, otherwise does nothing.
-static Memory arena_reallocate(Allocator allocator, Memory memory, size_t new_size, size_t alignment) {
-    ArenaAllocator* arena = allocator;
+static Memory arena_reallocate(Allocator* allocator, Memory memory, size_t new_size, size_t alignment) {
+    ArenaAllocator* arena = (ArenaAllocator*)allocator;
     size_t end_offset = (size_t)memory.base + memory.size;
 
     if (end_offset == (size_t)arena->base + arena->used) {
@@ -92,8 +92,8 @@ static Memory arena_reallocate(Allocator allocator, Memory memory, size_t new_si
 }
 
 // Deallocates if the memory points to the last allocated memory, otherwise does nothing.
-static void arena_deallocate(Allocator allocator, Memory memory) {
-    ArenaAllocator* arena = allocator;
+static void arena_deallocate(Allocator* allocator, Memory memory) {
+    ArenaAllocator* arena = (ArenaAllocator*)allocator;
     size_t end_offset = (size_t)memory.base + memory.size;
 
     if (end_offset == (size_t)arena->base + arena->used) {
@@ -101,8 +101,8 @@ static void arena_deallocate(Allocator allocator, Memory memory) {
     }
 }
 
-static void arena_destroy(Allocator allocator) {
-    ArenaAllocator* arena = allocator;
+static void arena_destroy(Allocator* allocator) {
+    ArenaAllocator* arena = (ArenaAllocator*)allocator;
     if (arena->base != NULL) {
         Memory old_memory = { .base = arena->base, .size = arena->size };
         deallocate(allocator, old_memory);
