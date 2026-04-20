@@ -14,8 +14,8 @@
 		"size": "64",
 		"alignment": "16",
 		"allocated_size": "64",
-		"allocated_ptr": "0xa4ac00000",
-		"time_ns": "5833"
+		"allocated_ptr": "0xb85004000",
+		"time_ns": "4250"
 	},
 	{
 		"kind": "allocation",
@@ -27,8 +27,8 @@
 		"size": "1025",
 		"alignment": "8",
 		"allocated_size": "1025",
-		"allocated_ptr": "0xa4ac04000",
-		"time_ns": "1584"
+		"allocated_ptr": "0xb85008000",
+		"time_ns": "1042"
 	},
 	{
 		"kind": "allocation",
@@ -40,8 +40,8 @@
 		"size": "1024",
 		"alignment": "16",
 		"allocated_size": "1024",
-		"allocated_ptr": "0xa4b00c000",
-		"time_ns": "1583"
+		"allocated_ptr": "0xb84c04000",
+		"time_ns": "958"
 	},
 	{
 		"kind": "allocation",
@@ -49,12 +49,12 @@
 		"line": "34",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16d5e30c0",
+		"allocator_data": "0x16d4a70c0",
 		"size": "512",
 		"alignment": "8",
 		"allocated_size": "512",
-		"allocated_ptr": "0xa4b00c000",
-		"time_ns": "2458"
+		"allocated_ptr": "0xb84c04000",
+		"time_ns": "1500"
 	},
 	{
 		"kind": "allocation",
@@ -62,11 +62,11 @@
 		"line": "37",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16d5e30c0",
+		"allocator_data": "0x16d4a70c0",
 		"size": "512",
 		"alignment": "8",
 		"allocated_size": "512",
-		"allocated_ptr": "0xa4b00c200",
+		"allocated_ptr": "0xb84c04200",
 		"time_ns": "42"
 	},
 	{
@@ -77,12 +77,12 @@
 		"allocator_kind": "0",
 		"allocator_data": "0x0",
 		"old_size": "1024",
-		"old_ptr": "0xa4b00c000",
+		"old_ptr": "0xb84c04000",
 		"new_size": "2048",
 		"new_alignment": "16",
 		"allocated_size": "2048",
-		"allocated_ptr": "0xa4b010000",
-		"time_ns": "1125"
+		"allocated_ptr": "0xb84c08000",
+		"time_ns": "1208"
 	},
 	{
 		"kind": "allocation",
@@ -90,12 +90,12 @@
 		"line": "40",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16d5e30c0",
+		"allocator_data": "0x16d4a70c0",
 		"size": "512",
 		"alignment": "8",
 		"allocated_size": "512",
-		"allocated_ptr": "0xa4b010400",
-		"time_ns": "2083"
+		"allocated_ptr": "0xb84c08400",
+		"time_ns": "1833"
 	},
 	{
 		"kind": "deallocation",
@@ -103,10 +103,10 @@
 		"line": "43",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16d5e30c0",
+		"allocator_data": "0x16d4a70c0",
 		"deallocated_size": "512",
-		"deallocated_ptr": "0xa4b00c000",
-		"time_ns": "42"
+		"deallocated_ptr": "0xb84c04000",
+		"time_ns": "83"
 	},
 	{
 		"kind": "deallocation",
@@ -114,10 +114,10 @@
 		"line": "44",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16d5e30c0",
+		"allocator_data": "0x16d4a70c0",
 		"deallocated_size": "512",
-		"deallocated_ptr": "0xa4b00c200",
-		"time_ns": "41"
+		"deallocated_ptr": "0xb84c04200",
+		"time_ns": "42"
 	},
 	{
 		"kind": "deallocation",
@@ -125,10 +125,10 @@
 		"line": "108",
 		"function": "arena_destroy",
 		"allocator_kind": "0",
-		"allocator_data": "0x16d5e30c0",
+		"allocator_data": "0x16d4a70c0",
 		"deallocated_size": "2048",
-		"deallocated_ptr": "0xa4b010000",
-		"time_ns": "84"
+		"deallocated_ptr": "0xb84c08000",
+		"time_ns": "41"
 	},
 	{
 		"kind": "destroy",
@@ -136,7 +136,7 @@
 		"line": "46",
 		"function": "main",
 		"allocator_kind": "1",
-		"allocator_data": "0x16d5e30c0",
-		"time_ns": "625"
+		"allocator_data": "0x16d4a70c0",
+		"time_ns": "375"
 	}
 ]

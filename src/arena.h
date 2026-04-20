@@ -37,7 +37,7 @@ static Memory arena_allocate(Allocator* allocator, size_t size, size_t alignment
     if (aligned_offset + size > (size_t)arena->base + arena->size) {
         Memory result = MEMORY_NULL;
         if (arena->base == NULL) {
-            size_t initial_size = arena->size == 0 ? 1024 : arena->size;
+            size_t initial_size = 1024;
             size_t base_alignment = 16;
             result = allocate(arena->parent, initial_size, base_alignment);
             if (result.base == NULL) {
