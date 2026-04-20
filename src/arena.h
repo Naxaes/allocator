@@ -35,13 +35,29 @@ static Memory arena_allocate(Allocator allocator, size_t size, size_t alignment)
     size_t padding = aligned_offset - offset;
 
     if (aligned_offset + size > (size_t)arena->base + arena->size) {
-        Memory old_memory = { .base = arena->base, .size = arena->size };
-        size_t new_size = arena->size * 2;
-        size_t base_alignment = 16;
-        Memory result = reallocate(allocator, old_memory, new_size, base_alignment);
-        if (result.base == NULL) {
-            return MEMORY_NULL;
+        Memory result = MEMORY_NULL;
+        if (arena->base == NULL) {
+            size_t initial_size = arena->size == 0 ? 1024 : arena->size;
+            size_t base_alignment = 16;
+            result = allocate(arena->parent, initial_size, base_alignment);
+            if (result.base == NULL) {
+                return MEMORY_NULL;
+            }
+        } else {
+            Memory old_memory = { .base = arena->base, .size = arena->size };
+            size_t new_size = arena->size * 2;
+            size_t base_alignment = 16;
+            result = reallocate(arena->parent, old_memory, new_size, base_alignment);
+            if (result.base == NULL) {
+                return MEMORY_NULL;
+            }
         }
+        arena->base = result.base;
+        arena->size = result.size;
+
+        offset = (size_t)arena->base + arena->used;
+        aligned_offset = (offset + alignment - 1) & ~(alignment - 1);
+        padding = aligned_offset - offset;
     }
 
     arena->used += padding + size;

@@ -1,0 +1,136 @@
+[
+	{
+		"kind": "hook_init",
+		"path": "allocation_log.json"
+	},
+	{
+		"kind": "allocation",
+		"file": "allocators.h",
+		"line": "296",
+		"function": "allocator_push",
+		"allocator_kind": "0",
+		"allocator_data": "0x0",
+		"size": "64",
+		"alignment": "16",
+		"allocated_size": "64",
+		"allocated_ptr": "0xc48c04000",
+		"time_ns": "3000"
+	},
+	{
+		"kind": "allocation",
+		"file": "main.c",
+		"line": "26",
+		"function": "main",
+		"allocator_kind": "0",
+		"allocator_data": "0x0",
+		"size": "1025",
+		"alignment": "8",
+		"allocated_size": "1025",
+		"allocated_ptr": "0xc48c08000",
+		"time_ns": "1000"
+	},
+	{
+		"kind": "allocation",
+		"file": "arena.h",
+		"line": "42",
+		"function": "arena_allocate",
+		"allocator_kind": "0",
+		"allocator_data": "0x0",
+		"size": "1024",
+		"alignment": "16",
+		"allocated_size": "1024",
+		"allocated_ptr": "0xc49004000",
+		"time_ns": "1000"
+	},
+	{
+		"kind": "allocation",
+		"file": "main.c",
+		"line": "34",
+		"function": "main",
+		"allocator_kind": "1",
+		"allocator_data": "0x16b2b3070",
+		"size": "512",
+		"alignment": "8",
+		"allocated_size": "512",
+		"allocated_ptr": "0xc49004000",
+		"time_ns": "2000"
+	},
+	{
+		"kind": "allocation",
+		"file": "main.c",
+		"line": "37",
+		"function": "main",
+		"allocator_kind": "1",
+		"allocator_data": "0x16b2b3070",
+		"size": "512",
+		"alignment": "8",
+		"allocated_size": "512",
+		"allocated_ptr": "0xc49004200",
+		"time_ns": "0"
+	},
+	{
+		"kind": "reallocation",
+		"file": "arena.h",
+		"line": "50",
+		"function": "arena_allocate",
+		"allocator_kind": "0",
+		"allocator_data": "0x0",
+		"old_size": "1024",
+		"old_ptr": "0xc49004000",
+		"new_size": "2048",
+		"new_alignment": "16",
+		"allocated_size": "2048",
+		"allocated_ptr": "0xc48c10000"
+	},
+	{
+		"kind": "allocation",
+		"file": "main.c",
+		"line": "40",
+		"function": "main",
+		"allocator_kind": "1",
+		"allocator_data": "0x16b2b3070",
+		"size": "512",
+		"alignment": "8",
+		"allocated_size": "512",
+		"allocated_ptr": "0xc48c10400",
+		"time_ns": "2000"
+	},
+	{
+		"kind": "deallocation",
+		"file": "main.c",
+		"line": "43",
+		"function": "main",
+		"allocator_kind": "1",
+		"allocator_data": "0x16b2b3070",
+		"deallocated_size": "512",
+		"deallocated_ptr": "0xc49004000"
+	},
+	{
+		"kind": "deallocation",
+		"file": "main.c",
+		"line": "44",
+		"function": "main",
+		"allocator_kind": "1",
+		"allocator_data": "0x16b2b3070",
+		"deallocated_size": "512",
+		"deallocated_ptr": "0xc49004200"
+	},
+	{
+		"kind": "deallocation",
+		"file": "arena.h",
+		"line": "108",
+		"function": "arena_destroy",
+		"allocator_kind": "0",
+		"allocator_data": "0x16b2b3070",
+		"deallocated_size": "2048",
+		"deallocated_ptr": "0xc48c10000"
+	},
+	{
+		"kind": "destroy",
+		"file": "main.c",
+		"line": "46",
+		"function": "main",
+		"allocator_kind": "1",
+		"allocator_data": "0x16b2b3070"
+	}
+]

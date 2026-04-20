@@ -1,11 +1,20 @@
-#define ALLOCATOR_IMPLEMENTATION
-#include <stdio.h>
+#define ALLOCATION_HOOKS_IMPLEMENTATION
+#include "allocation_hooks.h"
 
+#define ALLOCATOR_SYSTEM_IMPLEMENTATION
+#include "allocator_system.h"
+
+#define ALLOCATORS_IMPLEMENTATION
 #include "allocators.h"
 #include "arena.h"
 
+#include <stdio.h>
+
+
 
 int main(void) {
+    allocation_hook_init("allocation_log.json");
+
     allocator_register_kind((AllocatorFunctionTable) {
         .allocate = allocate_system,
         .reallocate = reallocate_system,
@@ -35,6 +44,8 @@ int main(void) {
     deallocate(allocator, memory2);
 
     destroy_allocator(allocator);
+
+    allocation_hook_deinit();
 
     return 0;
 }
