@@ -3,6 +3,8 @@
 
 #include "allocators.h"
 
+int  allocator_system_init(void);
+void allocator_system_deinit(void);
 
 Memory allocate_system(Allocator* allocator, size_t size, size_t alignment);
 Memory reallocate_system(Allocator* allocator, Memory memory, size_t new_size, size_t alignment);
@@ -16,6 +18,22 @@ void   destroy_system(Allocator* allocator);
 
 #include <stdlib.h>
 #include <string.h>
+
+int allocator_system_init(void) {
+    int kind = allocator_register_kind((AllocatorFunctionTable) {
+        .allocate = allocate_system,
+        .reallocate = reallocate_system,
+        .deallocate = deallocate_system,
+        .destroy = destroy_system,
+    });
+    assert(kind == 0 && "System allocator must be registered as the first allocator kind");
+    allocator_push(0);
+    return kind;
+}
+
+void allocator_system_deinit(void) {
+    allocator_pop();
+}
 
 Memory allocate_system(Allocator* allocator, size_t size, size_t alignment) {
     (void)allocator;

@@ -16,13 +16,7 @@
 int main(void) {
     allocation_hook_init("events.json");
 
-    allocator_register_kind((AllocatorFunctionTable) {
-        .allocate = allocate_system,
-        .reallocate = reallocate_system,
-        .deallocate = deallocate_system,
-        .destroy = destroy_system,
-    });
-    allocator_push(0);
+    allocator_system_init();
 
     Memory x = allocate(1025, 8);
     printf("%p with size %zu\n", x.base, x.size);
@@ -45,6 +39,9 @@ int main(void) {
     deallocate(allocator, memory2);
 
     destroy_allocator(allocator);
+
+    deallocate(x);
+    allocator_system_deinit();
 
     allocation_hook_deinit();
 

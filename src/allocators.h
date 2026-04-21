@@ -323,6 +323,14 @@ int allocator_push(Allocator* allocator) {
 void allocator_pop(void) {
     if (allocators_count > 0) {
         allocators[--allocators_count] = NULL;
+        if (allocators_count == 0) {
+            Memory old_memory = { .base = allocators, .size = allocators_capacity * sizeof(Allocator*) };
+            deallocate(0, old_memory);
+            allocators = NULL;
+            allocators_capacity = 0;
+        }
+    } else {
+        assert(0 && "Attempting to pop from an empty allocator stack");
     }
 }
 
