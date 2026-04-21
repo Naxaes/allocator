@@ -43,6 +43,7 @@ function formatBytes(bytes) {
 function describeEvent(event) {
     if (!event) return 'Initial state';
     const allocatorId = event.allocator_id ?? 'allocator';
+
     if (event.kind === 'allocation') {
         return `Allocation ${allocatorId} @ ${event.allocated_ptr} (${formatBytes(parseSize(event.allocated_size))})`;
     }
@@ -106,6 +107,7 @@ function inferBackingParent(region, allRegions) {
 function annotateInferredParents(memoryMap) {
     const allRegions = Array.from(memoryMap.values()).filter(region => Number.isFinite(region.base));
     const annotated = new Map();
+
     for (const [key, region] of memoryMap.entries()) {
         const parent = inferBackingParent(region, allRegions);
         annotated.set(key, {
@@ -115,6 +117,7 @@ function annotateInferredParents(memoryMap) {
             inferred_parent_ptr: parent ? parent.ptr : null
         });
     }
+
     return annotated;
 }
 
@@ -146,6 +149,7 @@ function findLiveRegionForDeallocation(next, allocatorId, ptr) {
             pointerMatches.push([key, region]);
         }
     }
+
     if (pointerMatches.length === 1) {
         return pointerMatches[0];
     }
@@ -157,6 +161,7 @@ function deleteDescendants(next, annotatedBeforeDelete, parentRegion) {
     const toDelete = [];
     const removedStart = parentRegion.base;
     const removedEnd = parentRegion.base + parentRegion.size;
+
     for (const [key, region] of annotatedBeforeDelete.entries()) {
         if (region.inferred_parent_live_key !== parentRegion.live_key) continue;
         if (!Number.isFinite(region.base)) continue;
@@ -164,6 +169,7 @@ function deleteDescendants(next, annotatedBeforeDelete, parentRegion) {
         if (region.base >= removedEnd) continue;
         toDelete.push(key);
     }
+
     for (const key of toDelete) {
         next.delete(key);
     }
@@ -176,6 +182,7 @@ function applyEvent(memoryMap, event) {
     if (event.kind === 'allocation') {
         const ptr = event.allocated_ptr;
         const liveKey = makeLiveKey(allocatorId, ptr);
+
         next.set(liveKey, {
             live_key: liveKey,
             ptr,
@@ -258,7 +265,9 @@ function applyEvent(memoryMap, event) {
 function computeTimeline(events) {
     const timeline = [];
     let memoryMap = new Map();
+
     timeline.push({ step: 0, event: null, memoryMap: new Map() });
+
     for (let i = 0; i < events.length; i++) {
         const event = events[i];
         if (event.kind === 'allocation' || event.kind === 'reallocation' || event.kind === 'deallocation') {
@@ -266,6 +275,7 @@ function computeTimeline(events) {
         }
         timeline.push({ step: i + 1, event, memoryMap: new Map(memoryMap) });
     }
+
     return timeline;
 }
 
@@ -284,6 +294,7 @@ function spanForPage(base, size, pageBase) {
     const start = Math.max(base, pageBase);
     const end = Math.min(base + size, pageBase + PAGE_BYTES);
     if (end <= start) return null;
+
     return {
         startOffset: start - pageBase,
         endOffset: end - pageBase,
@@ -312,12 +323,14 @@ function allocatorUsageForInterval(regions, start, end) {
         let depth = 0;
         let currentParent = entry.parent_allocator_id;
         const seen = new Set();
+
         while (currentParent && allocatorIds.has(currentParent) && !seen.has(currentParent)) {
             seen.add(currentParent);
             depth += 1;
             const parentEntry = allocatorMap.get(currentParent);
             currentParent = parentEntry ? parentEntry.parent_allocator_id : null;
         }
+
         entry.depth = depth;
     }
 
@@ -331,11 +344,15 @@ function allocatorUsageForInterval(regions, start, end) {
 
 function buildIntervalMap(regions) {
     const pageToRegions = new Map();
+
     for (const region of regions) {
         const firstPageBase = Math.floor(region.base / PAGE_BYTES) * PAGE_BYTES;
         const lastPageBase = Math.floor((region.base + region.size - 1) / PAGE_BYTES) * PAGE_BYTES;
+
         for (let pageBase = firstPageBase; pageBase <= lastPageBase; pageBase += PAGE_BYTES) {
-            if (!pageToRegions.has(pageBase)) pageToRegions.set(pageBase, []);
+            if (!pageToRegions.has(pageBase)) {
+                pageToRegions.set(pageBase, []);
+            }
             pageToRegions.get(pageBase).push(region);
         }
     }
@@ -343,22 +360,27 @@ function buildIntervalMap(regions) {
     const pageMap = new Map();
     for (const [pageBase, pageRegions] of pageToRegions.entries()) {
         const boundaries = new Set([0, PAGE_BYTES]);
+
         for (const region of pageRegions) {
             const span = spanForPage(region.base, region.size, pageBase);
             if (!span) continue;
             boundaries.add(span.startOffset);
             boundaries.add(span.endOffset);
         }
+
         const sorted = Array.from(boundaries).sort((a, b) => a - b);
         const intervals = [];
+
         for (let i = 0; i < sorted.length - 1; i++) {
             const startOffset = sorted[i];
             const endOffset = sorted[i + 1];
             if (endOffset <= startOffset) continue;
+
             const start = pageBase + startOffset;
             const end = pageBase + endOffset;
             const allocatorUsers = allocatorUsageForInterval(pageRegions, start, end);
             if (allocatorUsers.length === 0) continue;
+
             intervals.push({
                 pageBase,
                 startOffset,
@@ -367,13 +389,16 @@ function buildIntervalMap(regions) {
                 allocatorUsers
             });
         }
+
         pageMap.set(pageBase, intervals);
     }
+
     return pageMap;
 }
 
 function buildFlatOccupancy(pageMap) {
     const flat = new Map();
+
     for (const [pageBase, intervals] of pageMap.entries()) {
         for (const interval of intervals) {
             for (const user of interval.allocatorUsers) {
@@ -393,6 +418,7 @@ function buildFlatOccupancy(pageMap) {
             }
         }
     }
+
     return flat;
 }
 
@@ -408,6 +434,7 @@ function computeAnimationPlan(prevFlat, nextFlat) {
             added.add(key);
             continue;
         }
+
         if (
             prevItem.widthBytes !== nextItem.widthBytes ||
             prevItem.startOffset !== nextItem.startOffset ||
@@ -427,7 +454,9 @@ function computeAnimationPlan(prevFlat, nextFlat) {
     }
 
     for (const [key, prevItem] of prevFlat.entries()) {
-        if (!nextFlat.has(key)) removed.push(prevItem);
+        if (!nextFlat.has(key)) {
+            removed.push(prevItem);
+        }
     }
 
     return { added, resizeHighlight, resizeAdded, removed };
@@ -436,30 +465,92 @@ function computeAnimationPlan(prevFlat, nextFlat) {
 function buildLegend(regions) {
     const seen = new Set();
     const items = [];
+
     for (const region of regions) {
         const key = `${region.allocator_id}:${region.ptr}`;
         if (seen.has(key)) continue;
         seen.add(key);
         items.push(region);
     }
+
     el.regionLegend.innerHTML = items.map(item => `
-            <div class="region-chip" title="${item.allocator_id} · ${item.ptr} · ${formatBytes(item.size)} · base ${'0x' + item.base.toString(16)}">
-                <span class="region-chip-swatch" style="background:${item.allocator_color}"></span>
-                <span class="region-chip-label">${item.allocator_id} @ ${item.ptr}</span>
-            </div>
-        `).join('');
+        <div class="region-chip" title="${item.allocator_id} · ${item.ptr} · ${formatBytes(item.size)} · base ${'0x' + item.base.toString(16)}">
+            <span class="region-chip-swatch" style="background:${item.allocator_color}"></span>
+            <span class="region-chip-label">${item.allocator_id} @ ${item.ptr}</span>
+        </div>
+    `).join('');
 }
 
 function buildPageBases(pageMap, removedRegions) {
     const bases = new Set(pageMap.keys());
-    for (const region of removedRegions) bases.add(region.pageBase);
+    for (const region of removedRegions) {
+        bases.add(region.pageBase);
+    }
     return Array.from(bases).sort((a, b) => a - b);
 }
 
 function verticalStyleForUser(index, count) {
-    if (count <= 1) return { top: '0%', height: '100%' };
+    if (count <= 1) {
+        return { top: '0%', height: '100%' };
+    }
     const slice = 100 / count;
     return { top: `${index * slice}%`, height: `${slice}%` };
+}
+
+function getLogicalAffectedAllocatorIds(prevSnapshot, event) {
+    const affected = new Set();
+    if (!event) return affected;
+
+    const allocatorId = event.allocator_id ?? null;
+    if (!allocatorId) return affected;
+
+    if (event.kind === 'allocation') {
+        affected.add(allocatorId);
+        return affected;
+    }
+
+    if (event.kind === 'reallocation') {
+        affected.add(allocatorId);
+
+        const oldPtr = event.old_ptr;
+        const oldBase = Number(oldPtr);
+        const oldSize = parseSize(event.old_size);
+        const annotatedBeforeMove = annotateInferredParents(prevSnapshot.memoryMap);
+
+        const parentLiveKey = makeLiveKey(allocatorId, oldPtr);
+        for (const region of annotatedBeforeMove.values()) {
+            if (region.inferred_parent_live_key !== parentLiveKey) continue;
+            if (!Number.isFinite(region.base)) continue;
+            if (!isWithinRange(region.base, oldBase, oldSize)) continue;
+            affected.add(region.allocator_id);
+        }
+        return affected;
+    }
+
+    if (event.kind === 'deallocation') {
+        const annotatedBeforeDelete = annotateInferredParents(prevSnapshot.memoryMap);
+        const [, removedRegion] = findLiveRegionForDeallocation(prevSnapshot.memoryMap, allocatorId, event.deallocated_ptr);
+
+        if (removedRegion) {
+            affected.add(removedRegion.allocator_id);
+            const removedStart = removedRegion.base;
+            const removedEnd = removedRegion.base + removedRegion.size;
+
+            for (const region of annotatedBeforeDelete.values()) {
+                if (region.inferred_parent_live_key !== removedRegion.live_key) continue;
+                if (!Number.isFinite(region.base)) continue;
+                if (region.base < removedStart) continue;
+                if (region.base >= removedEnd) continue;
+                affected.add(region.allocator_id);
+            }
+        } else {
+            affected.add(allocatorId);
+        }
+
+        return affected;
+    }
+
+    return affected;
 }
 
 function stopPlayback() {
@@ -484,6 +575,7 @@ function schedulePlayback() {
         render();
         return;
     }
+
     state.playTimer = setTimeout(() => {
         state.step = Math.min(state.step + 1, state.timeline.length - 1);
         renderTransition();
@@ -494,10 +586,18 @@ function schedulePlayback() {
 function renderGrid(snapshot, options = {}) {
     const animate = !!options.animate;
     const includeRemoved = !!options.includeRemoved;
+    const prevSnapshot = options.prevSnapshot ?? null;
+    const event = options.event ?? null;
+
     const regions = computeAnnotatedRegions(snapshot);
     const pageMap = buildIntervalMap(regions);
     const nextFlat = buildFlatOccupancy(pageMap);
     const prevFlat = state.previousOccupancy;
+
+    const affectedAllocatorIds = (animate && prevSnapshot && event)
+        ? getLogicalAffectedAllocatorIds(prevSnapshot, event)
+        : new Set();
+
     const animationPlan = animate ? computeAnimationPlan(prevFlat, nextFlat) : {
         added: new Set(),
         resizeHighlight: new Set(),
@@ -505,7 +605,9 @@ function renderGrid(snapshot, options = {}) {
         removed: []
     };
 
-    if (animate) state.pendingRemovedRegions = animationPlan.removed;
+    if (animate) {
+        state.pendingRemovedRegions = animationPlan.removed;
+    }
 
     const removedRegions = includeRemoved ? state.pendingRemovedRegions : [];
     const pageBases = buildPageBases(pageMap, removedRegions);
@@ -514,6 +616,7 @@ function renderGrid(snapshot, options = {}) {
     buildLegend(regions);
 
     let shownPages = 0;
+
     for (const pageBase of pageBases) {
         const activeIntervals = pageMap.get(pageBase) || [];
         const renderables = [];
@@ -547,7 +650,11 @@ function renderGrid(snapshot, options = {}) {
 
         if (renderables.length === 0) continue;
 
-        renderables.sort((a, b) => a.startOffset - b.startOffset || a.verticalIndex - b.verticalIndex || a.allocator_id.localeCompare(b.allocator_id));
+        renderables.sort((a, b) =>
+            a.startOffset - b.startOffset ||
+            a.verticalIndex - b.verticalIndex ||
+            a.allocator_id.localeCompare(b.allocator_id)
+        );
 
         const rowEl = document.createElement('div');
         rowEl.className = 'memory-row';
@@ -566,15 +673,20 @@ function renderGrid(snapshot, options = {}) {
             regionEl.style.setProperty('--region-color', item.color);
             regionEl.style.left = `${(item.startOffset / PAGE_BYTES) * 100}%`;
             regionEl.style.width = `${Math.max((item.widthBytes / PAGE_BYTES) * 100, 0.15)}%`;
+
             const vertical = verticalStyleForUser(item.verticalIndex, item.userCount || 1);
             regionEl.style.top = vertical.top;
             regionEl.style.height = vertical.height;
             regionEl.title = `${item.allocator_id} · ${Math.max(item.widthBytes, 1)} B in page slice`;
 
             if (item.removed) {
-                regionEl.classList.add('anim-removed');
-            } else if (animate) {
-                if (animationPlan.resizeHighlight.has(item.key)) regionEl.classList.add('anim-resize-highlight');
+                if (affectedAllocatorIds.has(item.allocator_id)) {
+                    regionEl.classList.add('anim-removed');
+                }
+            } else if (animate && affectedAllocatorIds.has(item.allocator_id)) {
+                if (animationPlan.resizeHighlight.has(item.key)) {
+                    regionEl.classList.add('anim-resize-highlight');
+                }
                 if (animationPlan.resizeAdded.has(item.key)) {
                     regionEl.classList.add('anim-resize-added');
                 } else if (animationPlan.added.has(item.key)) {
@@ -599,6 +711,7 @@ function render() {
     const maxStep = Math.max(0, state.timeline.length - 1);
     const safeStep = Math.min(state.step, maxStep);
     const snapshot = state.timeline[safeStep] || state.timeline[0];
+    const prevSnapshot = safeStep > 0 ? state.timeline[safeStep - 1] : null;
 
     el.stepSlider.max = String(maxStep);
     el.stepSlider.value = String(safeStep);
@@ -611,7 +724,9 @@ function render() {
 
     renderGrid(snapshot, {
         animate: state.renderMode === 'transition',
-        includeRemoved: state.renderMode === 'transition'
+        includeRemoved: state.renderMode === 'transition',
+        prevSnapshot,
+        event: snapshot.event
     });
 }
 
@@ -689,14 +804,14 @@ async function init() {
         render();
     } catch (error) {
         document.querySelector('.app').innerHTML = `
-                <h1>Allocation Event Grid Visualizer</h1>
-                <section class="card">
-                    <div class="card-body">
-                        <p class="error-text">${String(error.message)}</p>
-                        <p style="margin-top:12px;">Create <code>${DATA_FILE}</code> next to <code>index.html</code> and put a JSON array of allocation events in it. Parent-child backing relationships are inferred from containment, so <code>parent_allocator_id</code> is optional.</p>
-                    </div>
-                </section>
-            `;
+            <h1>Allocation Event Grid Visualizer</h1>
+            <section class="card">
+                <div class="card-body">
+                    <p class="error-text">${String(error.message)}</p>
+                    <p style="margin-top:12px;">Create <code>${DATA_FILE}</code> next to <code>index.html</code> and put a JSON array of allocation events in it. Parent-child backing relationships are inferred from containment, so <code>parent_allocator_id</code> is optional.</p>
+                </div>
+            </section>
+        `;
     }
 }
 
