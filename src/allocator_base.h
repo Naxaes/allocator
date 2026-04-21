@@ -19,16 +19,11 @@ struct Memory {
 typedef struct Memory Memory;
 #define MEMORY_NULL ((Memory){ 0 })
 
-typedef enum AllocatorQuery {
-    ALLOCATOR_QUERY_GET_PARENT,
-} AllocatorQuery;
-
 
 typedef Memory (*AllocateFn)(Allocator* allocator, size_t size, size_t alignment);
 typedef Memory (*ReallocateFn)(Allocator* allocator, Memory memory, size_t new_size, size_t alignment);
 typedef int    (*DeallocateFn)(Allocator* allocator, Memory memory);
 typedef void   (*DestroyFn)(Allocator* allocator);
-typedef size_t (*QueryFn)(const Allocator* allocator, AllocatorQuery query);
 
 
 #define allocator_to_base(allocator, kind) (Allocator*)((uintptr_t)(allocator) | (kind));

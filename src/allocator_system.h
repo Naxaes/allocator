@@ -52,15 +52,6 @@ void destroy_system(Allocator* allocator) {
     (void)allocator;
 }
 
-size_t query_system(const Allocator* allocator, AllocatorQuery query) {
-    (void)allocator;
-    switch (query) {
-        case ALLOCATOR_QUERY_GET_PARENT:
-            return (size_t)0;
-        default:
-            return 0;
-    }
-}
 
 
 #endif  // ALLOCATOR_SYSTEM_IMPLEMENTATION

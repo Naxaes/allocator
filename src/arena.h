@@ -127,14 +127,6 @@ static void arena_destroy(Allocator* allocator) {
     }
 }
 
-static size_t arena_query(const Allocator* allocator, AllocatorQuery query) {
-    ArenaAllocator* arena = (ArenaAllocator*)allocator;
-    switch (query) {
-        case ALLOCATOR_QUERY_GET_PARENT:
-            return (size_t)arena->parent;
-    }
-}
-
 static int arena_allocator_kind;
 static int arena_allocator_initialize(void) {
     arena_allocator_kind = allocator_register_kind((AllocatorFunctionTable) {
@@ -142,7 +134,6 @@ static int arena_allocator_initialize(void) {
         .reallocate = arena_reallocate,
         .deallocate = arena_deallocate,
         .destroy = arena_destroy,
-        .query = arena_query,
     });
     return arena_allocator_kind;
 }

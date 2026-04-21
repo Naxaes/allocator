@@ -7,26 +7,26 @@
 	{
 		"kind": "allocation",
 		"file": "allocators.h",
-		"line": "320",
+		"line": "303",
 		"function": "allocator_push",
 		"allocator_id": "0-0",
 		"size": "64",
 		"alignment": "8",
 		"allocated_size": "64",
-		"allocated_ptr": "0x7bb004100",
-		"time_ns": "1292"
+		"allocated_ptr": "0x709004100",
+		"time_ns": "1792"
 	},
 	{
 		"kind": "allocation",
 		"file": "main.c",
-		"line": "28",
+		"line": "27",
 		"function": "main",
 		"allocator_id": "0-0",
 		"size": "1025",
 		"alignment": "8",
 		"allocated_size": "1025",
-		"allocated_ptr": "0x7bac00000",
-		"time_ns": "2666"
+		"allocated_ptr": "0x708c00000",
+		"time_ns": "4208"
 	},
 	{
 		"kind": "allocation",
@@ -37,43 +37,53 @@
 		"size": "4096",
 		"alignment": "16",
 		"allocated_size": "4096",
-		"allocated_ptr": "0x7bac04000",
-		"time_ns": "1083"
+		"allocated_ptr": "0x709008000",
+		"time_ns": "1583"
 	},
 	{
 		"kind": "allocation",
 		"file": "main.c",
-		"line": "36",
+		"line": "35",
 		"function": "main",
-		"allocator_id": "1-6093369304",
+		"allocator_id": "1-6130233312",
 		"size": "512",
 		"alignment": "8",
 		"allocated_size": "512",
-		"allocated_ptr": "0x7bac04000",
-		"time_ns": "1792"
+		"allocated_ptr": "0x709008000",
+		"time_ns": "2333"
 	},
 	{
 		"kind": "allocation",
 		"file": "main.c",
-		"line": "39",
+		"line": "38",
 		"function": "main",
-		"allocator_id": "1-6093369304",
+		"allocator_id": "1-6130233312",
 		"size": "512",
 		"alignment": "8",
 		"allocated_size": "512",
-		"allocated_ptr": "0x7bac04200",
+		"allocated_ptr": "0x709008200",
+		"time_ns": "41"
+	},
+	{
+		"kind": "allocation",
+		"file": "main.c",
+		"line": "41",
+		"function": "main",
+		"allocator_id": "1-6130233312",
+		"size": "512",
+		"alignment": "8",
+		"allocated_size": "512",
+		"allocated_ptr": "0x709008400",
 		"time_ns": "42"
 	},
 	{
-		"kind": "allocation",
+		"kind": "deallocation",
 		"file": "main.c",
-		"line": "42",
+		"line": "44",
 		"function": "main",
-		"allocator_id": "1-6093369304",
-		"size": "512",
-		"alignment": "8",
-		"allocated_size": "512",
-		"allocated_ptr": "0x7bac04400",
+		"allocator_id": "1-6130233312",
+		"deallocated_size": "0",
+		"deallocated_ptr": "0x0",
 		"time_ns": "42"
 	},
 	{
@@ -81,20 +91,10 @@
 		"file": "main.c",
 		"line": "45",
 		"function": "main",
-		"allocator_id": "1-6093369304",
-		"deallocated_size": "512",
-		"deallocated_ptr": "0x7bac04000",
-		"time_ns": "0"
-	},
-	{
-		"kind": "deallocation",
-		"file": "main.c",
-		"line": "46",
-		"function": "main",
-		"allocator_id": "1-6093369304",
-		"deallocated_size": "512",
-		"deallocated_ptr": "0x7bac04200",
-		"time_ns": "0"
+		"allocator_id": "1-6130233312",
+		"deallocated_size": "0",
+		"deallocated_ptr": "0x0",
+		"time_ns": "42"
 	},
 	{
 		"kind": "deallocation",
@@ -103,15 +103,15 @@
 		"function": "arena_destroy",
 		"allocator_id": "0-0",
 		"deallocated_size": "4096",
-		"deallocated_ptr": "0x7bac04000",
-		"time_ns": "125"
+		"deallocated_ptr": "0x709008000",
+		"time_ns": "166"
 	},
 	{
 		"kind": "destroy",
 		"file": "main.c",
-		"line": "48",
+		"line": "47",
 		"function": "main",
-		"allocator_id": "1-6093369304",
-		"time_ns": "667"
+		"allocator_id": "1-6130233312",
+		"time_ns": "792"
 	}
 ]

@@ -21,7 +21,6 @@ int main(void) {
         .reallocate = reallocate_system,
         .deallocate = deallocate_system,
         .destroy = destroy_system,
-        .query = query_system,
     });
     allocator_push(0);
 

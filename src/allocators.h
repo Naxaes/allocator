@@ -11,7 +11,6 @@ struct AllocatorFunctionTable {
     ReallocateFn reallocate;
     DeallocateFn deallocate;
     DestroyFn    destroy;
-    QueryFn      query;
 } allocator_function_kinds[ALLOCATOR_KINDS_COUNT];
 static int allocator_function_kinds_count = 0;
 
@@ -134,13 +133,11 @@ static inline void allocator_destroy(Allocator* allocator, const char* file, con
 #define reallocate4(allocator, old_memory, new_size, alignment) allocator_realloc(allocator, old_memory, new_size, alignment, __FILE_NAME__, __func__, __LINE__)
 #define deallocate2(allocator, memory) allocator_dealloc(allocator, memory, __FILE_NAME__, __func__, __LINE__)
 #define destroy_allocator1(allocator) allocator_destroy(allocator, __FILE_NAME__, __func__, __LINE__)
-#define query_allocator2(allocator, tag) allocator_query(allocator, tag)
 
 #define allocate2(size, alignment) allocator_alloc(allocator_current(), size, alignment, __FILE_NAME__, __func__, __LINE__)
 #define reallocate3(old_memory, new_size, alignment) allocator_realloc(allocator_current(), old_memory, new_size, alignment, __FILE_NAME__, __func__, __LINE__)
 #define deallocate1(memory) allocator_dealloc(allocator_current(), memory, __FILE_NAME__, __func__, __LINE__)
 #define destroy_allocator0() allocator_destroy(allocator_current(), __FILE_NAME__, __func__, __LINE__)
-#define query_allocator1(tag) allocator_query(allocator_current(), tag)
 
 
 /* User options */
@@ -218,19 +215,6 @@ static inline void allocator_destroy(Allocator* allocator, const char* file, con
     ALLOCATOR_POST_DESTROY_HOOK(allocator, file, function, line);
 }
 
-static inline size_t allocator_query(Allocator* allocator, AllocatorQuery tag) {
-    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
-    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
-    AllocatorFunctionTable table = allocator_function_kinds[kind];
-
-    if (table.query != NULL) {
-        return table.query((void*)data, tag);
-    } else {
-        return (size_t)-1;
-    }
-}
-
-
 #endif  // ALLOCATOR_DEBUG
 
 
@@ -266,7 +250,6 @@ This is restricted to a minimum of 1 argument and a maximum of 8.
 #define reallocate(...)        Z_WITH_DEFAULTS(reallocate, __VA_ARGS__)
 #define deallocate(...)        Z_WITH_DEFAULTS(deallocate, __VA_ARGS__)
 #define destroy_allocator(...) Z_WITH_DEFAULTS(destroy_allocator, __VA_ARGS__)
-#define query_allocator(...)   Z_WITH_DEFAULTS(query_allocator, __VA_ARGS__)
 
 
 #endif  // ALLOCATORS_H

@@ -121,31 +121,32 @@ function annotateInferredParents(memoryMap) {
     return annotated;
 }
 
-function findLiveRegionForDeallocation(next, allocatorId, ptr) {
+function findLiveRegionForDeallocation(next, allocatorId, ptr, size) {
+    if (ptr === '0x0' || ptr === '0x00000000' || ptr === '0' || Number(size) === 0) {
+        return [null, null];
+    }
+
     const liveKey = makeLiveKey(allocatorId, ptr);
     if (next.has(liveKey)) {
         return [liveKey, next.get(liveKey)];
-    }
-
-    if (ptr === '0x0' || ptr === '0x00000000' || ptr === '0') {
-        let lastMatch = null;
-        for (const [key, region] of liveEntries(next)) {
-            if (region.allocator_id !== allocatorId) continue;
-            lastMatch = [key, region];
-        }
-        return lastMatch ?? [null, null];
     }
 
     for (const [key, region] of liveEntries(next)) {
         if (region.allocator_id !== allocatorId) continue;
         if (region.ptr === ptr) return [key, region];
         if (region.original_ptr === ptr) return [key, region];
-        if (Array.isArray(region.known_ptrs) && region.known_ptrs.includes(ptr)) return [key, region];
+        if (Array.isArray(region.known_ptrs) && region.known_ptrs.includes(ptr)) {
+            return [key, region];
+        }
     }
 
     const pointerMatches = [];
     for (const [key, region] of liveEntries(next)) {
-        if (region.ptr === ptr || region.original_ptr === ptr || (Array.isArray(region.known_ptrs) && region.known_ptrs.includes(ptr))) {
+        if (
+            region.ptr === ptr ||
+            region.original_ptr === ptr ||
+            (Array.isArray(region.known_ptrs) && region.known_ptrs.includes(ptr))
+        ) {
             pointerMatches.push([key, region]);
         }
     }
@@ -251,7 +252,12 @@ function applyEvent(memoryMap, event) {
 
     if (event.kind === 'deallocation') {
         const annotatedBeforeDelete = annotateInferredParents(next);
-        const [liveKey, removedRegion] = findLiveRegionForDeallocation(next, allocatorId, event.deallocated_ptr);
+        const [liveKey, removedRegion] = findLiveRegionForDeallocation(
+            next,
+            allocatorId,
+            event.deallocated_ptr,
+            event.deallocated_size
+        );
         if (liveKey && removedRegion) {
             next.delete(liveKey);
             deleteDescendants(next, annotatedBeforeDelete, removedRegion);

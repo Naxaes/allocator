@@ -124,10 +124,10 @@ void allocation_post_deallocate_hook(Allocator* allocator, Memory memory, int re
     uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
     uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
 
-    //if (result)
+    if (result)
         fprintf(allocation_log_file, format, file, line, function, kind, data, memory.size, memory.base, time_diff_ns);
-    //else
-    //    fprintf(allocation_log_file, format, file, line, function, kind, data, 0, NULL, time_diff_ns);
+    else
+        fprintf(allocation_log_file, format, file, line, function, kind, data, 0, NULL, time_diff_ns);
 }
 
 void allocation_post_destroy_hook(Allocator* allocator, const char* file, const char* function, int line, size_t time_diff_ns) {
