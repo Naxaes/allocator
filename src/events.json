@@ -6,6 +6,8 @@
 	},
 	{
 		"kind": "allocation",
+		"allocator_id": "0",
+		"parent_allocator_id": null,
 		"file": "allocators.h",
 		"line": "316",
 		"function": "allocator_push",
@@ -19,6 +21,8 @@
 	},
 	{
 		"kind": "allocation",
+		"allocator_id": "0",
+		"parent_allocator_id": null,
 		"file": "main.c",
 		"line": "28",
 		"function": "main",
@@ -32,6 +36,8 @@
 	},
 	{
 		"kind": "allocation",
+		"allocator_id": "0",
+		"parent_allocator_id": null,
 		"file": "arena.h",
 		"line": "42",
 		"function": "arena_allocate",
@@ -45,6 +51,8 @@
 	},
 	{
 		"kind": "allocation",
+		"allocator_id": "1",
+		"parent_allocator_id": "0",
 		"file": "main.c",
 		"line": "36",
 		"function": "main",
@@ -58,6 +66,8 @@
 	},
 	{
 		"kind": "allocation",
+		"allocator_id": "1",
+		"parent_allocator_id": "0",
 		"file": "main.c",
 		"line": "39",
 		"function": "main",
@@ -71,6 +81,8 @@
 	},
 	{
 		"kind": "reallocation",
+		"allocator_id": "0",
+		"parent_allocator_id": null,
 		"file": "arena.h",
 		"line": "50",
 		"function": "arena_allocate",
@@ -86,6 +98,8 @@
 	},
 	{
 		"kind": "allocation",
+		"allocator_id": "1",
+		"parent_allocator_id": "0",
 		"file": "main.c",
 		"line": "42",
 		"function": "main",
@@ -99,6 +113,8 @@
 	},
 	{
 		"kind": "deallocation",
+		"allocator_id": "1",
+		"parent_allocator_id": "0",
 		"file": "main.c",
 		"line": "45",
 		"function": "main",
@@ -110,6 +126,8 @@
 	},
 	{
 		"kind": "deallocation",
+		"allocator_id": "1",
+		"parent_allocator_id": "0",
 		"file": "main.c",
 		"line": "46",
 		"function": "main",
@@ -121,6 +139,8 @@
 	},
 	{
 		"kind": "deallocation",
+		"allocator_id": "0",
+		"parent_allocator_id": null,
 		"file": "arena.h",
 		"line": "115",
 		"function": "arena_destroy",
@@ -132,6 +152,8 @@
 	},
 	{
 		"kind": "destroy",
+		"allocator_id": "0",
+		"parent_allocator_id": null,
 		"file": "main.c",
 		"line": "48",
 		"function": "main",

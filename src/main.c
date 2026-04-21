@@ -14,7 +14,7 @@
 
 
 int main(void) {
-    allocation_hook_init("allocation_log.json");
+    allocation_hook_init("events.json");
 
     allocator_register_kind((AllocatorFunctionTable) {
         .allocate = allocate_system,

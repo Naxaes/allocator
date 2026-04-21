@@ -47,6 +47,10 @@
             color: var(--muted);
         }
 
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
         .card {
             margin-top: 24px;
             background: var(--panel);
@@ -148,16 +152,17 @@
 
         .page-region {
             position: absolute;
-            top: 0;
-            bottom: 0;
             background: var(--region-color, var(--accent));
             transition: transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease;
             transform: scaleY(1);
             opacity: 1;
+            border-top: 1px solid rgba(255,255,255,0.35);
+            border-bottom: 1px solid rgba(15,23,42,0.1);
         }
 
         .page-region:hover {
             transform: scaleY(1.04);
+            z-index: 3;
         }
 
         .page-region.anim-added {
@@ -177,50 +182,24 @@
         }
 
         @keyframes region-added {
-            0% {
-                transform: scaleY(0.55);
-                opacity: 0.2;
-            }
-            100% {
-                transform: scaleY(1);
-                opacity: 1;
-            }
+            0% { transform: scaleY(0.55); opacity: 0.2; }
+            100% { transform: scaleY(1); opacity: 1; }
         }
 
         @keyframes region-removed {
-            0% {
-                transform: scaleY(1);
-                opacity: 1;
-            }
-            100% {
-                transform: scaleY(0.55);
-                opacity: 0.15;
-            }
+            0% { transform: scaleY(1); opacity: 1; }
+            100% { transform: scaleY(0.55); opacity: 0.15; }
         }
 
         @keyframes region-resize-highlight {
-            0% {
-                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-            }
-            35% {
-                box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.28) inset;
-            }
-            100% {
-                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-            }
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+            35% { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.28) inset; }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
         }
 
         @keyframes region-resize-added {
-            0% {
-                transform: scaleY(0.55);
-                opacity: 0.2;
-                box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.28) inset;
-            }
-            100% {
-                transform: scaleY(1);
-                opacity: 1;
-                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-            }
+            0% { transform: scaleY(0.55); opacity: 0.2; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.28) inset; }
+            100% { transform: scaleY(1); opacity: 1; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
         }
 
         .legend {
@@ -289,26 +268,22 @@
             font-size: 0.92rem;
         }
 
+        .error-text {
+            color: #b91c1c;
+            margin: 0;
+        }
+
         @media (max-width: 720px) {
-            .app {
-                padding: 16px;
-            }
-
-            .step-meta {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            :root {
-                --page-width: min(92vw, 720px);
-            }
+            .app { padding: 16px; }
+            .step-meta { flex-direction: column; align-items: flex-start; }
+            :root { --page-width: min(92vw, 720px); }
         }
     </style>
 </head>
 <body>
 <div class="app">
     <h1>Allocation Event Grid Visualizer</h1>
-    <p>Step through allocation events and view live memory as a 2D grid laid out by address, preserving adjacency and holes.</p>
+    <p>Step through allocation events loaded from <code>events.json</code> next to <code>index.html</code> and view memory by page, including overlapping parent/child allocator usage.</p>
 
     <section class="card">
         <div class="card-body">
@@ -332,7 +307,7 @@
         <div class="card-body">
             <div class="legend">
                 <div class="legend-item"><span class="legend-swatch"></span><span>Free page space</span></div>
-                <div class="legend-item"><span class="legend-swatch used"></span><span>Allocated region</span></div>
+                <div class="legend-item"><span class="legend-swatch used"></span><span>Allocator usage</span></div>
             </div>
             <div class="grid-wrap">
                 <div id="memoryGrid" class="memory-grid"></div>
@@ -344,31 +319,14 @@
 </div>
 
 <script>
-    const MOCK_EVENTS = [
-        { kind: "allocation", allocator_id: "page_allocator", parent_allocator_id: null, allocated_size: "4096", allocated_ptr: "0xb84c04000" },
-        { kind: "allocation", allocator_id: "scratch_allocator", parent_allocator_id: "page_allocator", allocated_size: "1024", allocated_ptr: "0xb84c04000" },
-        { kind: "allocation", allocator_id: "frame_allocator", parent_allocator_id: "page_allocator", allocated_size: "512", allocated_ptr: "0xb84c04400" },
-        { kind: "allocation", allocator_id: "temp_allocator", parent_allocator_id: "page_allocator", allocated_size: "768", allocated_ptr: "0xb84c04600" },
-        { kind: "deallocation", allocator_id: "frame_allocator", parent_allocator_id: "page_allocator", deallocated_size: "512", deallocated_ptr: "0xb84c04400" },
-        { kind: "reallocation", allocator_id: "scratch_allocator", parent_allocator_id: "page_allocator", old_size: "1024", old_ptr: "0xb84c04000", allocated_size: "1536", allocated_ptr: "0xb84c04000" },
-        { kind: "allocation", allocator_id: "page_allocator", parent_allocator_id: null, allocated_size: "4096", allocated_ptr: "0xb84c05000" },
-        { kind: "allocation", allocator_id: "frame_allocator", parent_allocator_id: "page_allocator", allocated_size: "1024", allocated_ptr: "0xb84c05000" },
-        { kind: "deallocation", allocator_id: "temp_allocator", parent_allocator_id: "page_allocator", deallocated_size: "768", deallocated_ptr: "0xb84c04600" },
-        { kind: "allocation", allocator_id: "temp_allocator", parent_allocator_id: "page_allocator", allocated_size: "512", allocated_ptr: "0xb84c04800" },
-        { kind: "deallocation", allocator_id: "frame_allocator", parent_allocator_id: "page_allocator", deallocated_size: "1024", deallocated_ptr: "0xb84c05000" },
-        { kind: "deallocation", allocator_id: "scratch_allocator", parent_allocator_id: "page_allocator", deallocated_size: "1536", deallocated_ptr: "0xb84c04000" },
-        { kind: "deallocation", allocator_id: "temp_allocator", parent_allocator_id: "page_allocator", deallocated_size: "512", deallocated_ptr: "0xb84c04800" },
-        { kind: "deallocation", allocator_id: "page_allocator", parent_allocator_id: null, deallocated_size: "4096", deallocated_ptr: "0xb84c05000" },
-        { kind: "deallocation", allocator_id: "page_allocator", parent_allocator_id: null, deallocated_size: "4096", deallocated_ptr: "0xb84c04000" }
-    ];
-
+    const DATA_FILE = 'events.json';
     const UNIT_BYTES = 128;
     const GRID_COLS = 32;
     const PAGE_BYTES = UNIT_BYTES * GRID_COLS;
     const ANIMATION_MS = 430;
 
     const state = {
-        events: MOCK_EVENTS,
+        events: [],
         timeline: [],
         step: 0,
         isPlaying: false,
@@ -406,13 +364,13 @@
     function describeEvent(event) {
         if (!event) return 'Initial state';
         if (event.kind === 'allocation') {
-            return `Allocation ${event.allocated_ptr} (${formatBytes(parseSize(event.allocated_size))})`;
+            return `Allocation ${event.allocator_id ?? 'allocator'} @ ${event.allocated_ptr} (${formatBytes(parseSize(event.allocated_size))})`;
         }
         if (event.kind === 'reallocation') {
-            return `Reallocation ${event.old_ptr} -> ${event.allocated_ptr} (${formatBytes(parseSize(event.old_size))} -> ${formatBytes(parseSize(event.allocated_size))})`;
+            return `Reallocation ${event.allocator_id ?? 'allocator'} ${event.old_ptr} -> ${event.allocated_ptr} (${formatBytes(parseSize(event.old_size))} -> ${formatBytes(parseSize(event.allocated_size))})`;
         }
         if (event.kind === 'deallocation') {
-            return `Deallocation ${event.deallocated_ptr} (${formatBytes(parseSize(event.deallocated_size))})`;
+            return `Deallocation ${event.allocator_id ?? 'allocator'} @ ${event.deallocated_ptr} (${formatBytes(parseSize(event.deallocated_size))})`;
         }
         return event.kind || 'Unknown';
     }
@@ -426,16 +384,76 @@
         return hash >>> 0;
     }
 
-    function colorForPtr(ptr) {
-        const hash = hashString(String(ptr));
-        const hue = hash % 360;
-        return `hsl(${hue} 65% 48%)`;
-    }
-
     function colorForAllocator(allocatorId) {
         const hash = hashString(String(allocatorId ?? 'unknown_allocator'));
         const hue = hash % 360;
         return `hsl(${hue} 65% 52%)`;
+    }
+
+    function makeLiveKey(allocatorId, ptr) {
+        return `${allocatorId}:${ptr}`;
+    }
+
+    function liveEntries(memoryMap) {
+        return Array.from(memoryMap.entries());
+    }
+
+    function isWithinRange(base, start, size) {
+        return base >= start && base < start + size;
+    }
+
+    function moveDescendants(next, parentAllocatorId, oldBase, oldSize, delta) {
+        const descendants = [];
+        for (const [key, region] of liveEntries(next)) {
+            if (region.parent_allocator_id !== parentAllocatorId) continue;
+            if (!Number.isFinite(region.base)) continue;
+            if (!isWithinRange(region.base, oldBase, oldSize)) continue;
+            descendants.push([key, region]);
+        }
+
+        for (const [key] of descendants) {
+            next.delete(key);
+        }
+
+        for (const [, region] of descendants) {
+            const movedBase = region.base + delta;
+            const movedPtr = '0x' + movedBase.toString(16);
+            const movedKey = makeLiveKey(region.allocator_id, movedPtr);
+            next.set(movedKey, {
+                ...region,
+                live_key: movedKey,
+                ptr: movedPtr,
+                base: movedBase
+            });
+        }
+    }
+
+    function deleteDescendants(next, parentRegion) {
+        const toDelete = [];
+        const removedStart = parentRegion.base;
+        const removedEnd = parentRegion.base + parentRegion.size;
+        for (const [key, region] of liveEntries(next)) {
+            if (region.parent_allocator_id !== parentRegion.allocator_id) continue;
+            if (!Number.isFinite(region.base)) continue;
+            if (region.base < removedStart) continue;
+            if (region.base >= removedEnd) continue;
+            toDelete.push(key);
+        }
+        for (const key of toDelete) {
+            next.delete(key);
+        }
+    }
+
+    function findLiveRegionForDeallocation(next, allocatorId, ptr) {
+        const liveKey = makeLiveKey(allocatorId, ptr);
+        if (next.has(liveKey)) {
+            return [liveKey, next.get(liveKey)];
+        }
+        for (const [key, region] of liveEntries(next)) {
+            if (region.allocator_id !== allocatorId) continue;
+            if (region.original_ptr === ptr) return [key, region];
+        }
+        return [null, null];
     }
 
     function applyEvent(memoryMap, event) {
@@ -444,10 +462,11 @@
 
         if (event.kind === 'allocation') {
             const ptr = event.allocated_ptr;
-            const liveKey = `${allocatorId}:${ptr}`;
+            const liveKey = makeLiveKey(allocatorId, ptr);
             next.set(liveKey, {
                 live_key: liveKey,
                 ptr,
+                original_ptr: ptr,
                 allocator_id: allocatorId,
                 parent_allocator_id: event.parent_allocator_id ?? null,
                 base: Number(ptr),
@@ -459,23 +478,36 @@
         if (event.kind === 'reallocation') {
             const oldPtr = event.old_ptr;
             const newPtr = event.allocated_ptr;
-            const oldLiveKey = `${allocatorId}:${oldPtr}`;
-            const newLiveKey = `${allocatorId}:${newPtr}`;
+            const oldBase = Number(oldPtr);
+            const newBase = Number(newPtr);
+            const oldSize = parseSize(event.old_size);
+            const newSize = parseSize(event.allocated_size);
+            const delta = newBase - oldBase;
+            const oldLiveKey = makeLiveKey(allocatorId, oldPtr);
+            const existing = next.get(oldLiveKey);
+
             next.delete(oldLiveKey);
+            moveDescendants(next, allocatorId, oldBase, oldSize, delta);
+
+            const newLiveKey = makeLiveKey(allocatorId, newPtr);
             next.set(newLiveKey, {
                 live_key: newLiveKey,
                 ptr: newPtr,
+                original_ptr: existing ? existing.original_ptr : newPtr,
                 allocator_id: allocatorId,
-                parent_allocator_id: event.parent_allocator_id ?? null,
-                base: Number(newPtr),
-                size: parseSize(event.allocated_size)
+                parent_allocator_id: event.parent_allocator_id ?? (existing ? existing.parent_allocator_id : null),
+                base: newBase,
+                size: newSize
             });
             return next;
         }
 
         if (event.kind === 'deallocation') {
-            const liveKey = `${allocatorId}:${event.deallocated_ptr}`;
-            next.delete(liveKey);
+            const [liveKey, removedRegion] = findLiveRegionForDeallocation(next, allocatorId, event.deallocated_ptr);
+            if (liveKey && removedRegion) {
+                next.delete(liveKey);
+                deleteDescendants(next, removedRegion);
+            }
             return next;
         }
 
@@ -496,28 +528,37 @@
     function computeRegions(snapshot) {
         return Array.from(snapshot.memoryMap.values())
             .filter(region => Number.isFinite(region.base))
-            .sort((a, b) => a.base - b.base)
+            .sort((a, b) => a.base - b.base || a.allocator_id.localeCompare(b.allocator_id))
             .map(region => ({
                 ...region,
-                color: colorForPtr(region.ptr),
                 allocator_color: colorForAllocator(region.allocator_id)
             }));
+    }
+
+    function spanForPage(base, size, pageBase) {
+        const start = Math.max(base, pageBase);
+        const end = Math.min(base + size, pageBase + PAGE_BYTES);
+        if (end <= start) return null;
+        return {
+            startOffset: start - pageBase,
+            endOffset: end - pageBase,
+            widthBytes: end - start
+        };
     }
 
     function allocatorUsageForInterval(regions, start, end) {
         const covering = regions.filter(region => region.base < end && (region.base + region.size) > start);
         const allocatorMap = new Map();
+
         for (const region of covering) {
             if (!allocatorMap.has(region.allocator_id)) {
                 allocatorMap.set(region.allocator_id, {
                     allocator_id: region.allocator_id,
                     color: region.allocator_color,
                     parent_allocator_id: region.parent_allocator_id,
-                    depth: 0,
-                    regions: []
+                    depth: 0
                 });
             }
-            allocatorMap.get(region.allocator_id).regions.push(region);
         }
 
         const allocatorIds = new Set(allocatorMap.keys());
@@ -536,27 +577,24 @@
 
         return Array.from(allocatorMap.values()).sort((a, b) => {
             if (a.depth !== b.depth) return a.depth - b.depth;
-            if (a.parent_allocator_id === b.allocator_id) return -1;
-            if (b.parent_allocator_id === a.allocator_id) return 1;
+            if (a.parent_allocator_id === b.allocator_id) return 1;
+            if (b.parent_allocator_id === a.allocator_id) return -1;
             return a.allocator_id.localeCompare(b.allocator_id);
         });
     }
 
     function buildIntervalMap(regions) {
-        const pageMap = new Map();
         const pageToRegions = new Map();
-
         for (const region of regions) {
             const firstPageBase = Math.floor(region.base / PAGE_BYTES) * PAGE_BYTES;
             const lastPageBase = Math.floor((region.base + region.size - 1) / PAGE_BYTES) * PAGE_BYTES;
             for (let pageBase = firstPageBase; pageBase <= lastPageBase; pageBase += PAGE_BYTES) {
-                if (!pageToRegions.has(pageBase)) {
-                    pageToRegions.set(pageBase, []);
-                }
+                if (!pageToRegions.has(pageBase)) pageToRegions.set(pageBase, []);
                 pageToRegions.get(pageBase).push(region);
             }
         }
 
+        const pageMap = new Map();
         for (const [pageBase, pageRegions] of pageToRegions.entries()) {
             const boundaries = new Set([0, PAGE_BYTES]);
             for (const region of pageRegions) {
@@ -585,71 +623,30 @@
             }
             pageMap.set(pageBase, intervals);
         }
-
         return pageMap;
     }
 
-    function makePageKey(pageBase, ptr, allocatorId, startOffset, endOffset) {
-        return `${pageBase}:${ptr}:${allocatorId}:${startOffset}:${endOffset}`;
-    }
-
-    function spanForPage(base, size, pageBase) {
-        const start = Math.max(base, pageBase);
-        const end = Math.min(base + size, pageBase + PAGE_BYTES);
-        if (end <= start) return null;
-        return {
-            startOffset: start - pageBase,
-            endOffset: end - pageBase,
-            widthBytes: end - start
-        };
-    }
-
-    function buildPageMap(regions) {
-        const pageMap = new Map();
-        for (const region of regions) {
-            const firstPageBase = Math.floor(region.base / PAGE_BYTES) * PAGE_BYTES;
-            const lastPageBase = Math.floor((region.base + region.size - 1) / PAGE_BYTES) * PAGE_BYTES;
-            for (let pageBase = firstPageBase; pageBase <= lastPageBase; pageBase += PAGE_BYTES) {
-                if (!pageMap.has(pageBase)) {
-                    pageMap.set(pageBase, []);
-                }
-                const span = spanForPage(region.base, region.size, pageBase);
-                if (!span) continue;
-                pageMap.get(pageBase).push({
-                    key: makePageKey(pageBase, region.ptr, region.allocator_id, span.startOffset, span.endOffset),
-                    pageBase,
-                    ptr: region.ptr,
-                    allocator_id: region.allocator_id,
-                    parent_allocator_id: region.parent_allocator_id,
-                    size: region.size,
-                    color: region.color,
-                    allocator_color: region.allocator_color,
-                    base: region.base,
-                    span
-                });
-            }
-        }
-        for (const items of pageMap.values()) {
-            items.sort((a, b) => a.base - b.base || a.size - b.size);
-        }
-        return pageMap;
+    function makeSegmentKey(pageBase, allocatorId, startOffset, endOffset) {
+        return `${pageBase}:${allocatorId}:${startOffset}:${endOffset}`;
     }
 
     function buildFlatOccupancy(pageMap) {
         const flat = new Map();
         for (const [pageBase, intervals] of pageMap.entries()) {
             for (const interval of intervals) {
-                for (const allocatorUser of interval.allocatorUsers) {
-                    const key = `${pageBase}:${allocatorUser.allocator_id}:${interval.startOffset}:${interval.endOffset}`;
+                for (const user of interval.allocatorUsers) {
+                    const key = makeSegmentKey(pageBase, user.allocator_id, interval.startOffset, interval.endOffset);
                     flat.set(key, {
                         key,
                         pageBase,
-                        allocator_id: allocatorUser.allocator_id,
-                        color: allocatorUser.color,
+                        allocator_id: user.allocator_id,
+                        color: user.color,
+                        parent_allocator_id: user.parent_allocator_id,
                         startOffset: interval.startOffset,
                         endOffset: interval.endOffset,
                         widthBytes: interval.widthBytes,
-                        userCount: interval.allocatorUsers.length
+                        userCount: interval.allocatorUsers.length,
+                        depth: user.depth
                     });
                 }
             }
@@ -673,22 +670,54 @@
                 prevItem.widthBytes !== nextItem.widthBytes ||
                 prevItem.startOffset !== nextItem.startOffset ||
                 prevItem.endOffset !== nextItem.endOffset ||
-                prevItem.userCount !== nextItem.userCount
+                prevItem.userCount !== nextItem.userCount ||
+                prevItem.depth !== nextItem.depth
             ) {
                 resizeHighlight.add(key);
-                if (nextItem.widthBytes > prevItem.widthBytes || nextItem.startOffset !== prevItem.startOffset || nextItem.endOffset !== prevItem.endOffset) {
+                if (
+                    nextItem.widthBytes > prevItem.widthBytes ||
+                    nextItem.startOffset !== prevItem.startOffset ||
+                    nextItem.endOffset !== prevItem.endOffset
+                ) {
                     resizeAdded.add(key);
                 }
             }
         }
 
         for (const [key, prevItem] of prevFlat.entries()) {
-            if (!nextFlat.has(key)) {
-                removed.push(prevItem);
-            }
+            if (!nextFlat.has(key)) removed.push(prevItem);
         }
 
         return { added, resizeHighlight, resizeAdded, removed };
+    }
+
+    function buildLegend(regions) {
+        const seen = new Set();
+        const items = [];
+        for (const region of regions) {
+            const key = `${region.allocator_id}:${region.ptr}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            items.push(region);
+        }
+        el.regionLegend.innerHTML = items.map(item => `
+            <div class="region-chip" title="${item.allocator_id} · ${item.ptr} · ${formatBytes(item.size)} · base ${'0x' + item.base.toString(16)}">
+                <span class="region-chip-swatch" style="background:${item.allocator_color}"></span>
+                <span class="region-chip-label">${item.allocator_id} @ ${item.ptr}</span>
+            </div>
+        `).join('');
+    }
+
+    function buildPageBases(pageMap, removedRegions) {
+        const bases = new Set(pageMap.keys());
+        for (const region of removedRegions) bases.add(region.pageBase);
+        return Array.from(bases).sort((a, b) => a - b);
+    }
+
+    function verticalStyleForUser(index, count) {
+        if (count <= 1) return { top: '0%', height: '100%' };
+        const slice = 100 / count;
+        return { top: `${index * slice}%`, height: `${slice}%` };
     }
 
     function stopPlayback() {
@@ -720,51 +749,6 @@
         }, 900);
     }
 
-    function buildLegend(regions) {
-        const seen = new Set();
-        const items = [];
-        for (const region of regions) {
-            const legendKey = `${region.ptr}:${region.allocator_id}`;
-            if (seen.has(legendKey)) continue;
-            seen.add(legendKey);
-            items.push(region);
-        }
-        el.regionLegend.innerHTML = items.map(item => `
-        <div class="region-chip" title="${item.ptr} · ${item.allocator_id} · ${formatBytes(item.size)} · base ${'0x' + item.base.toString(16)}">
-          <span class="region-chip-swatch" style="background:${item.allocator_color}"></span>
-          <span class="region-chip-label">${item.allocator_id} @ ${item.ptr}</span>
-        </div>
-      `).join('');
-    }
-
-    function buildPageBases(pageMap, removedRegions) {
-        const bases = new Set(pageMap.keys());
-        for (const region of removedRegions) {
-            bases.add(region.pageBase);
-        }
-        return Array.from(bases).sort((a, b) => a - b);
-    }
-
-    function verticalStyleForUser(index, count) {
-        if (count <= 1) {
-            return { top: '0%', height: '100%' };
-        }
-        const slice = 100 / count;
-        return {
-            top: `${index * slice}%`,
-            height: `${slice}%`
-        };
-    }
-
-    function regionStyleForSpan(span) {
-        const leftPct = (span.startOffset / PAGE_BYTES) * 100;
-        const widthPct = (span.widthBytes / PAGE_BYTES) * 100;
-        return {
-            left: `${leftPct}%`,
-            width: `${Math.max(widthPct, 0.15)}%`
-        };
-    }
-
     function renderGrid(snapshot, options = {}) {
         const animate = !!options.animate;
         const includeRemoved = !!options.includeRemoved;
@@ -779,9 +763,7 @@
             removed: []
         };
 
-        if (animate) {
-            state.pendingRemovedRegions = animationPlan.removed;
-        }
+        if (animate) state.pendingRemovedRegions = animationPlan.removed;
 
         const removedRegions = includeRemoved ? state.pendingRemovedRegions : [];
         const pageBases = buildPageBases(pageMap, removedRegions);
@@ -790,27 +772,15 @@
         buildLegend(regions);
 
         let shownPages = 0;
-
         for (const pageBase of pageBases) {
-            const rowEl = document.createElement('div');
-            rowEl.className = 'memory-row';
-
-            const addrEl = document.createElement('div');
-            addrEl.className = 'row-address';
-            addrEl.textContent = '0x' + pageBase.toString(16);
-            rowEl.appendChild(addrEl);
-
-            const barEl = document.createElement('div');
-            barEl.className = 'page-bar';
-
             const activeIntervals = pageMap.get(pageBase) || [];
-            const allRenderable = [];
+            const renderables = [];
 
             for (const interval of activeIntervals) {
                 const count = interval.allocatorUsers.length;
                 interval.allocatorUsers.forEach((user, index) => {
-                    allRenderable.push({
-                        key: `${pageBase}:${user.allocator_id}:${interval.startOffset}:${interval.endOffset}`,
+                    renderables.push({
+                        key: makeSegmentKey(pageBase, user.allocator_id, interval.startOffset, interval.endOffset),
                         pageBase,
                         allocator_id: user.allocator_id,
                         color: user.color,
@@ -825,28 +795,35 @@
             }
 
             for (const item of removedRegions.filter(item => item.pageBase === pageBase)) {
-                allRenderable.push({
+                renderables.push({
                     ...item,
-                    removed: true,
-                    verticalIndex: 0
+                    verticalIndex: item.depth ?? 0,
+                    removed: true
                 });
             }
 
-            if (allRenderable.length === 0) {
-                continue;
-            }
+            if (renderables.length === 0) continue;
 
-            allRenderable.sort((a, b) => a.startOffset - b.startOffset || a.verticalIndex - b.verticalIndex);
+            renderables.sort((a, b) => a.startOffset - b.startOffset || a.verticalIndex - b.verticalIndex || a.allocator_id.localeCompare(b.allocator_id));
 
-            for (const item of allRenderable) {
+            const rowEl = document.createElement('div');
+            rowEl.className = 'memory-row';
+
+            const addrEl = document.createElement('div');
+            addrEl.className = 'row-address';
+            addrEl.textContent = '0x' + pageBase.toString(16);
+            rowEl.appendChild(addrEl);
+
+            const barEl = document.createElement('div');
+            barEl.className = 'page-bar';
+
+            for (const item of renderables) {
                 const regionEl = document.createElement('div');
                 regionEl.className = 'page-region';
                 regionEl.style.setProperty('--region-color', item.color);
-                const leftPct = (item.startOffset / PAGE_BYTES) * 100;
-                const widthPct = (item.widthBytes / PAGE_BYTES) * 100;
-                const vertical = verticalStyleForUser(item.verticalIndex, item.userCount ?? 1);
-                regionEl.style.left = `${leftPct}%`;
-                regionEl.style.width = `${Math.max(widthPct, 0.15)}%`;
+                regionEl.style.left = `${(item.startOffset / PAGE_BYTES) * 100}%`;
+                regionEl.style.width = `${Math.max((item.widthBytes / PAGE_BYTES) * 100, 0.15)}%`;
+                const vertical = verticalStyleForUser(item.verticalIndex, item.userCount || 1);
                 regionEl.style.top = vertical.top;
                 regionEl.style.height = vertical.height;
                 regionEl.title = `${item.allocator_id} · ${Math.max(item.widthBytes, 1)} B in page slice`;
@@ -854,9 +831,7 @@
                 if (item.removed) {
                     regionEl.classList.add('anim-removed');
                 } else if (animate) {
-                    if (animationPlan.resizeHighlight.has(item.key)) {
-                        regionEl.classList.add('anim-resize-highlight');
-                    }
+                    if (animationPlan.resizeHighlight.has(item.key)) regionEl.classList.add('anim-resize-highlight');
                     if (animationPlan.resizeAdded.has(item.key)) {
                         regionEl.classList.add('anim-resize-added');
                     } else if (animationPlan.added.has(item.key)) {
@@ -874,7 +849,6 @@
 
         const totalBytes = regions.reduce((sum, region) => sum + region.size, 0);
         el.summary.textContent = `${formatBytes(totalBytes)} live · ${shownPages} pages shown`;
-
         state.previousOccupancy = nextFlat;
     }
 
@@ -887,7 +861,6 @@
         el.stepSlider.value = String(safeStep);
         el.stepLabel.textContent = `Step ${safeStep} / ${maxStep}`;
         el.eventLabel.textContent = describeEvent(snapshot.event);
-
         el.prevBtn.disabled = safeStep === 0;
         el.nextBtn.disabled = safeStep >= maxStep;
         el.playBtn.disabled = maxStep === 0;
@@ -953,10 +926,35 @@
         });
     }
 
-    function init() {
-        state.timeline = computeTimeline(state.events);
-        bindEvents();
-        render();
+    async function loadEvents() {
+        const response = await fetch(DATA_FILE, { cache: 'no-store' });
+        if (!response.ok) {
+            throw new Error(`Failed to load ${DATA_FILE}: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+            throw new Error(`${DATA_FILE} must contain a top-level JSON array.`);
+        }
+        return data;
+    }
+
+    async function init() {
+        try {
+            state.events = await loadEvents();
+            state.timeline = computeTimeline(state.events);
+            bindEvents();
+            render();
+        } catch (error) {
+            document.querySelector('.app').innerHTML = `
+                <h1>Allocation Event Grid Visualizer</h1>
+                <section class="card">
+                    <div class="card-body">
+                        <p class="error-text">${String(error.message)}</p>
+                        <p style="margin-top:12px;">Create <code>${DATA_FILE}</code> next to <code>index.html</code> and put a JSON array of allocation events in it.</p>
+                    </div>
+                </section>
+            `;
+        }
     }
 
     init();
