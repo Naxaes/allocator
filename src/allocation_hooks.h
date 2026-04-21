@@ -17,7 +17,7 @@ size_t time_ns(void);
 #define ALLOCATOR_POST_REALLOCATE_HOOK(allocator, memory, new_size, alignment, result, file, function, line) allocation_post_realloc_hook(allocator, memory, new_size, alignment, result, file, function, line, time_ns() - start_time)
 
 #define ALLOCATOR_PRE_DEALLOCATE_HOOK(allocator, memory, file, function, line) size_t start_time = time_ns()
-#define ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory, file, function, line) allocation_post_deallocate_hook(allocator, memory, file, function, line, time_ns() - start_time)
+#define ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory, result, file, function, line) allocation_post_deallocate_hook(allocator, memory, result, file, function, line, time_ns() - start_time)
 
 #define ALLOCATOR_PRE_DESTROY_HOOK(allocator, file, function, line) size_t start_time = time_ns()
 #define ALLOCATOR_POST_DESTROY_HOOK(allocator, file, function, line) allocation_post_destroy_hook(allocator, file, function, line, time_ns() - start_time)
@@ -26,7 +26,7 @@ int  allocation_hook_init(const char* path);
 void allocation_hook_deinit(void);
 void allocation_post_allocate_hook(Allocator* allocator, size_t size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns);
 void allocation_post_realloc_hook(Allocator* allocator, Memory memory, size_t new_size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns);
-void allocation_post_deallocate_hook(Allocator* allocator, Memory memory, const char* file, const char* function, int line, size_t time_diff_ns);
+void allocation_post_deallocate_hook(Allocator* allocator, Memory memory, int result, const char* file, const char* function, int line, size_t time_diff_ns);
 void allocation_post_destroy_hook(Allocator* allocator, const char* file, const char* function, int line, size_t time_diff_ns);
 
 
@@ -74,8 +74,7 @@ void allocation_post_allocate_hook(Allocator* allocator, size_t size, size_t ali
                          "\t\t\"file\": \"%s\",\n"
                          "\t\t\"line\": \"%d\",\n"
                          "\t\t\"function\": \"%s\",\n"
-                         "\t\t\"allocator_kind\": \"%zu\",\n"
-                         "\t\t\"allocator_data\": \"%p\",\n"
+                         "\t\t\"allocator_id\": \"%zu-%zu\",\n"
                          "\t\t\"size\": \"%zu\",\n"
                          "\t\t\"alignment\": \"%zu\",\n"
                          "\t\t\"allocated_size\": \"%zu\",\n"
@@ -84,8 +83,8 @@ void allocation_post_allocate_hook(Allocator* allocator, size_t size, size_t ali
                          "\t}";
     uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
     uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
-
-    fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, size, alignment, result.size, result.base, time_diff_ns);
+    
+    fprintf(allocation_log_file, format, file, line, function, kind, data, size, alignment, result.size, result.base, time_diff_ns);
 }
 
 void allocation_post_realloc_hook(Allocator* allocator, Memory memory, size_t new_size, size_t alignment, Memory result, const char* file, const char* function, int line, size_t time_diff_ns) {
@@ -95,8 +94,7 @@ void allocation_post_realloc_hook(Allocator* allocator, Memory memory, size_t ne
                          "\t\t\"file\": \"%s\",\n"
                          "\t\t\"line\": \"%d\",\n"
                          "\t\t\"function\": \"%s\",\n"
-                         "\t\t\"allocator_kind\": \"%zu\",\n"
-                         "\t\t\"allocator_data\": \"%p\",\n"
+                         "\t\t\"allocator_id\": \"%zu-%zu\",\n"
                          "\t\t\"old_size\": \"%zu\",\n"
                          "\t\t\"old_ptr\": \"%p\",\n"
                          "\t\t\"new_size\": \"%zu\",\n"
@@ -108,18 +106,17 @@ void allocation_post_realloc_hook(Allocator* allocator, Memory memory, size_t ne
     uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
     uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
 
-    fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, memory.size, memory.base, new_size, alignment, result.size, result.base, time_diff_ns);
+    fprintf(allocation_log_file, format, file, line, function, kind, data, memory.size, memory.base, new_size, alignment, result.size, result.base, time_diff_ns);
 }
 
-void allocation_post_deallocate_hook(Allocator* allocator, Memory memory, const char* file, const char* function, int line, size_t time_diff_ns) {
+void allocation_post_deallocate_hook(Allocator* allocator, Memory memory, int result, const char* file, const char* function, int line, size_t time_diff_ns) {
     assert(allocation_log_file != NULL && "allocation_post_deallocate_hook requires allocation_hook_init to be called");
     static const char* format = ",\n\t{\n"
                          "\t\t\"kind\": \"deallocation\",\n"
                          "\t\t\"file\": \"%s\",\n"
                          "\t\t\"line\": \"%d\",\n"
                          "\t\t\"function\": \"%s\",\n"
-                         "\t\t\"allocator_kind\": \"%zu\",\n"
-                         "\t\t\"allocator_data\": \"%p\",\n"
+                         "\t\t\"allocator_id\": \"%zu-%zu\",\n"
                          "\t\t\"deallocated_size\": \"%zu\",\n"
                          "\t\t\"deallocated_ptr\": \"%p\",\n"
                          "\t\t\"time_ns\": \"%zu\"\n"
@@ -127,7 +124,10 @@ void allocation_post_deallocate_hook(Allocator* allocator, Memory memory, const 
     uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
     uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
 
-    fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, memory.size, memory.base, time_diff_ns);
+    //if (result)
+        fprintf(allocation_log_file, format, file, line, function, kind, data, memory.size, memory.base, time_diff_ns);
+    //else
+    //    fprintf(allocation_log_file, format, file, line, function, kind, data, 0, NULL, time_diff_ns);
 }
 
 void allocation_post_destroy_hook(Allocator* allocator, const char* file, const char* function, int line, size_t time_diff_ns) {
@@ -137,14 +137,13 @@ void allocation_post_destroy_hook(Allocator* allocator, const char* file, const 
                          "\t\t\"file\": \"%s\",\n"
                          "\t\t\"line\": \"%d\",\n"
                          "\t\t\"function\": \"%s\",\n"
-                         "\t\t\"allocator_kind\": \"%zu\",\n"
-                         "\t\t\"allocator_data\": \"%p\",\n"
+                         "\t\t\"allocator_id\": \"%zu-%zu\",\n"
                          "\t\t\"time_ns\": \"%zu\"\n"
                          "\t}";
     uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
     uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
-
-    fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, time_diff_ns);
+    
+    fprintf(allocation_log_file, format, file, line, function, kind, data, time_diff_ns);
 }
 
 

@@ -1,6 +1,8 @@
 #ifndef ALLOCATORS_ARENA_H
 #define ALLOCATORS_ARENA_H
 
+#include <assert.h>
+
 #include "allocators.h"
 
 
@@ -37,7 +39,7 @@ static Memory arena_allocate(Allocator* allocator, size_t size, size_t alignment
     if (aligned_offset + size > (size_t)arena->base + arena->size) {
         Memory result = MEMORY_NULL;
         if (arena->base == NULL) {
-            size_t initial_size = 1024;
+            size_t initial_size = 4096;
             size_t base_alignment = 16;
             result = allocate(arena->parent, initial_size, base_alignment);
             if (result.base == NULL) {
@@ -99,20 +101,29 @@ static Memory arena_reallocate(Allocator* allocator, Memory memory, size_t new_s
 }
 
 // Deallocates if the memory points to the last allocated memory, otherwise does nothing.
-static void arena_deallocate(Allocator* allocator, Memory memory) {
+static int arena_deallocate(Allocator* allocator, Memory memory) {
     ArenaAllocator* arena = (ArenaAllocator*)allocator;
     size_t end_offset = (size_t)memory.base + memory.size;
 
     if (end_offset == (size_t)arena->base + arena->used) {
         arena->used -= memory.size;
+        return 1;
     }
+
+    // Check if we own this memory
+    if ((size_t)memory.base >= (size_t)arena->base && end_offset <= (size_t)arena->base + arena->size) {
+        return 0;
+    }
+
+    assert(0 && "Attempting to deallocate memory that was not allocated by this arena");
 }
 
+// TODO: If an arena is backed by another arena, we might not be able to destroy and should report that.
 static void arena_destroy(Allocator* allocator) {
     ArenaAllocator* arena = (ArenaAllocator*)allocator;
     if (arena->base != NULL) {
         Memory old_memory = { .base = arena->base, .size = arena->size };
-        deallocate(allocator, old_memory);
+        deallocate(arena->parent, old_memory);
     }
 }
 

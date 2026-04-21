@@ -363,14 +363,15 @@
 
     function describeEvent(event) {
         if (!event) return 'Initial state';
+        const allocatorId = event.allocator_id ?? 'allocator';
         if (event.kind === 'allocation') {
-            return `Allocation ${event.allocator_id ?? 'allocator'} @ ${event.allocated_ptr} (${formatBytes(parseSize(event.allocated_size))})`;
+            return `Allocation ${allocatorId} @ ${event.allocated_ptr} (${formatBytes(parseSize(event.allocated_size))})`;
         }
         if (event.kind === 'reallocation') {
-            return `Reallocation ${event.allocator_id ?? 'allocator'} ${event.old_ptr} -> ${event.allocated_ptr} (${formatBytes(parseSize(event.old_size))} -> ${formatBytes(parseSize(event.allocated_size))})`;
+            return `Reallocation ${allocatorId} ${event.old_ptr} -> ${event.allocated_ptr} (${formatBytes(parseSize(event.old_size))} -> ${formatBytes(parseSize(event.allocated_size))})`;
         }
         if (event.kind === 'deallocation') {
-            return `Deallocation ${event.allocator_id ?? 'allocator'} @ ${event.deallocated_ptr} (${formatBytes(parseSize(event.deallocated_size))})`;
+            return `Deallocation ${allocatorId} @ ${event.deallocated_ptr} (${formatBytes(parseSize(event.deallocated_size))})`;
         }
         return event.kind || 'Unknown';
     }
@@ -394,6 +395,10 @@
         return `${allocatorId}:${ptr}`;
     }
 
+    function makeSegmentKey(pageBase, allocatorId, startOffset, endOffset) {
+        return `${pageBase}:${allocatorId}:${startOffset}:${endOffset}`;
+    }
+
     function liveEntries(memoryMap) {
         return Array.from(memoryMap.entries());
     }
@@ -402,38 +407,79 @@
         return base >= start && base < start + size;
     }
 
-    function moveDescendants(next, parentAllocatorId, oldBase, oldSize, delta) {
-        const descendants = [];
-        for (const [key, region] of liveEntries(next)) {
-            if (region.parent_allocator_id !== parentAllocatorId) continue;
-            if (!Number.isFinite(region.base)) continue;
-            if (!isWithinRange(region.base, oldBase, oldSize)) continue;
-            descendants.push([key, region]);
-        }
-
-        for (const [key] of descendants) {
-            next.delete(key);
-        }
-
-        for (const [, region] of descendants) {
-            const movedBase = region.base + delta;
-            const movedPtr = '0x' + movedBase.toString(16);
-            const movedKey = makeLiveKey(region.allocator_id, movedPtr);
-            next.set(movedKey, {
-                ...region,
-                live_key: movedKey,
-                ptr: movedPtr,
-                base: movedBase
-            });
-        }
+    function regionContains(outerBase, outerSize, innerBase, innerSize) {
+        return innerBase >= outerBase && (innerBase + innerSize) <= (outerBase + outerSize);
     }
 
-    function deleteDescendants(next, parentRegion) {
+    function inferBackingParent(region, allRegions) {
+        let bestParent = null;
+        for (const candidate of allRegions) {
+            if (candidate.live_key === region.live_key) continue;
+            if (candidate.allocator_id === region.allocator_id) continue;
+            if (!regionContains(candidate.base, candidate.size, region.base, region.size)) continue;
+            if (!bestParent || candidate.size < bestParent.size) {
+                bestParent = candidate;
+            }
+        }
+        return bestParent;
+    }
+
+    function annotateInferredParents(memoryMap) {
+        const allRegions = Array.from(memoryMap.values()).filter(region => Number.isFinite(region.base));
+        const annotated = new Map();
+        for (const [key, region] of memoryMap.entries()) {
+            const parent = inferBackingParent(region, allRegions);
+            annotated.set(key, {
+                ...region,
+                parent_allocator_id: parent ? parent.allocator_id : null,
+                inferred_parent_live_key: parent ? parent.live_key : null,
+                inferred_parent_ptr: parent ? parent.ptr : null
+            });
+        }
+        return annotated;
+    }
+
+    function findLiveRegionForDeallocation(next, allocatorId, ptr) {
+        const liveKey = makeLiveKey(allocatorId, ptr);
+        if (next.has(liveKey)) {
+            return [liveKey, next.get(liveKey)];
+        }
+
+        if (ptr === '0x0' || ptr === '0x00000000' || ptr === '0') {
+            let lastMatch = null;
+            for (const [key, region] of liveEntries(next)) {
+                if (region.allocator_id !== allocatorId) continue;
+                lastMatch = [key, region];
+            }
+            return lastMatch ?? [null, null];
+        }
+
+        for (const [key, region] of liveEntries(next)) {
+            if (region.allocator_id !== allocatorId) continue;
+            if (region.ptr === ptr) return [key, region];
+            if (region.original_ptr === ptr) return [key, region];
+            if (Array.isArray(region.known_ptrs) && region.known_ptrs.includes(ptr)) return [key, region];
+        }
+
+        const pointerMatches = [];
+        for (const [key, region] of liveEntries(next)) {
+            if (region.ptr === ptr || region.original_ptr === ptr || (Array.isArray(region.known_ptrs) && region.known_ptrs.includes(ptr))) {
+                pointerMatches.push([key, region]);
+            }
+        }
+        if (pointerMatches.length === 1) {
+            return pointerMatches[0];
+        }
+
+        return [null, null];
+    }
+
+    function deleteDescendants(next, annotatedBeforeDelete, parentRegion) {
         const toDelete = [];
         const removedStart = parentRegion.base;
         const removedEnd = parentRegion.base + parentRegion.size;
-        for (const [key, region] of liveEntries(next)) {
-            if (region.parent_allocator_id !== parentRegion.allocator_id) continue;
+        for (const [key, region] of annotatedBeforeDelete.entries()) {
+            if (region.inferred_parent_live_key !== parentRegion.live_key) continue;
             if (!Number.isFinite(region.base)) continue;
             if (region.base < removedStart) continue;
             if (region.base >= removedEnd) continue;
@@ -442,18 +488,6 @@
         for (const key of toDelete) {
             next.delete(key);
         }
-    }
-
-    function findLiveRegionForDeallocation(next, allocatorId, ptr) {
-        const liveKey = makeLiveKey(allocatorId, ptr);
-        if (next.has(liveKey)) {
-            return [liveKey, next.get(liveKey)];
-        }
-        for (const [key, region] of liveEntries(next)) {
-            if (region.allocator_id !== allocatorId) continue;
-            if (region.original_ptr === ptr) return [key, region];
-        }
-        return [null, null];
     }
 
     function applyEvent(memoryMap, event) {
@@ -467,8 +501,9 @@
                 live_key: liveKey,
                 ptr,
                 original_ptr: ptr,
+                known_ptrs: [ptr],
                 allocator_id: allocatorId,
-                parent_allocator_id: event.parent_allocator_id ?? null,
+                parent_allocator_id: null,
                 base: Number(ptr),
                 size: parseSize(event.allocated_size)
             });
@@ -486,27 +521,54 @@
             const oldLiveKey = makeLiveKey(allocatorId, oldPtr);
             const existing = next.get(oldLiveKey);
 
+            const annotatedBeforeMove = annotateInferredParents(next);
+            const descendantsToMove = [];
+            for (const [key, region] of annotatedBeforeMove.entries()) {
+                if (region.inferred_parent_live_key !== oldLiveKey) continue;
+                if (!Number.isFinite(region.base)) continue;
+                if (!isWithinRange(region.base, oldBase, oldSize)) continue;
+                descendantsToMove.push([key, region]);
+            }
+
             next.delete(oldLiveKey);
-            moveDescendants(next, allocatorId, oldBase, oldSize, delta);
+            for (const [key] of descendantsToMove) {
+                next.delete(key);
+            }
 
             const newLiveKey = makeLiveKey(allocatorId, newPtr);
             next.set(newLiveKey, {
                 live_key: newLiveKey,
                 ptr: newPtr,
                 original_ptr: existing ? existing.original_ptr : newPtr,
+                known_ptrs: Array.from(new Set([...(existing?.known_ptrs ?? [oldPtr]), oldPtr, newPtr])),
                 allocator_id: allocatorId,
-                parent_allocator_id: event.parent_allocator_id ?? (existing ? existing.parent_allocator_id : null),
+                parent_allocator_id: null,
                 base: newBase,
                 size: newSize
             });
+
+            for (const [, region] of descendantsToMove) {
+                const movedBase = region.base + delta;
+                const movedPtr = '0x' + movedBase.toString(16);
+                const movedKey = makeLiveKey(region.allocator_id, movedPtr);
+                next.set(movedKey, {
+                    ...region,
+                    live_key: movedKey,
+                    ptr: movedPtr,
+                    known_ptrs: Array.from(new Set([...(region.known_ptrs ?? [region.ptr]), region.ptr, movedPtr])),
+                    base: movedBase
+                });
+            }
+
             return next;
         }
 
         if (event.kind === 'deallocation') {
+            const annotatedBeforeDelete = annotateInferredParents(next);
             const [liveKey, removedRegion] = findLiveRegionForDeallocation(next, allocatorId, event.deallocated_ptr);
             if (liveKey && removedRegion) {
                 next.delete(liveKey);
-                deleteDescendants(next, removedRegion);
+                deleteDescendants(next, annotatedBeforeDelete, removedRegion);
             }
             return next;
         }
@@ -519,14 +581,18 @@
         let memoryMap = new Map();
         timeline.push({ step: 0, event: null, memoryMap: new Map() });
         for (let i = 0; i < events.length; i++) {
-            memoryMap = applyEvent(memoryMap, events[i]);
-            timeline.push({ step: i + 1, event: events[i], memoryMap: new Map(memoryMap) });
+            const event = events[i];
+            if (event.kind === 'allocation' || event.kind === 'reallocation' || event.kind === 'deallocation') {
+                memoryMap = applyEvent(memoryMap, event);
+            }
+            timeline.push({ step: i + 1, event, memoryMap: new Map(memoryMap) });
         }
         return timeline;
     }
 
-    function computeRegions(snapshot) {
-        return Array.from(snapshot.memoryMap.values())
+    function computeAnnotatedRegions(snapshot) {
+        const annotatedMap = annotateInferredParents(snapshot.memoryMap);
+        return Array.from(annotatedMap.values())
             .filter(region => Number.isFinite(region.base))
             .sort((a, b) => a.base - b.base || a.allocator_id.localeCompare(b.allocator_id))
             .map(region => ({
@@ -556,6 +622,7 @@
                     allocator_id: region.allocator_id,
                     color: region.allocator_color,
                     parent_allocator_id: region.parent_allocator_id,
+                    inferred_parent_live_key: region.inferred_parent_live_key,
                     depth: 0
                 });
             }
@@ -577,8 +644,8 @@
 
         return Array.from(allocatorMap.values()).sort((a, b) => {
             if (a.depth !== b.depth) return a.depth - b.depth;
-            if (a.parent_allocator_id === b.allocator_id) return 1;
-            if (b.parent_allocator_id === a.allocator_id) return -1;
+            if (a.parent_allocator_id === b.allocator_id) return -1;
+            if (b.parent_allocator_id === a.allocator_id) return 1;
             return a.allocator_id.localeCompare(b.allocator_id);
         });
     }
@@ -624,10 +691,6 @@
             pageMap.set(pageBase, intervals);
         }
         return pageMap;
-    }
-
-    function makeSegmentKey(pageBase, allocatorId, startOffset, endOffset) {
-        return `${pageBase}:${allocatorId}:${startOffset}:${endOffset}`;
     }
 
     function buildFlatOccupancy(pageMap) {
@@ -752,7 +815,7 @@
     function renderGrid(snapshot, options = {}) {
         const animate = !!options.animate;
         const includeRemoved = !!options.includeRemoved;
-        const regions = computeRegions(snapshot);
+        const regions = computeAnnotatedRegions(snapshot);
         const pageMap = buildIntervalMap(regions);
         const nextFlat = buildFlatOccupancy(pageMap);
         const prevFlat = state.previousOccupancy;
@@ -789,6 +852,7 @@
                         widthBytes: interval.widthBytes,
                         userCount: count,
                         verticalIndex: index,
+                        depth: user.depth,
                         removed: false
                     });
                 });
@@ -950,7 +1014,7 @@
                 <section class="card">
                     <div class="card-body">
                         <p class="error-text">${String(error.message)}</p>
-                        <p style="margin-top:12px;">Create <code>${DATA_FILE}</code> next to <code>index.html</code> and put a JSON array of allocation events in it.</p>
+                        <p style="margin-top:12px;">Create <code>${DATA_FILE}</code> next to <code>index.html</code> and put a JSON array of allocation events in it. Parent-child backing relationships are inferred from containment, so <code>parent_allocator_id</code> is optional.</p>
                     </div>
                 </section>
             `;

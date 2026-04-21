@@ -63,7 +63,7 @@ static inline void allocator_destroy(Allocator* allocator);
 #define ALLOCATOR_PRE_DEALLOCATE_HOOK(allocator, memory) ((void)0)
 #endif
 #ifndef ALLOCATOR_POST_DEALLOCATE_HOOK
-#define ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory) ((void)0)
+#define ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory, result) ((void)0)
 #endif
 
 #ifndef ALLOCATOR_PRE_DESTROY_HOOK
@@ -96,20 +96,22 @@ static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_REALLOCATE_HOOK(allocator, memory, new_size, alignment);
-    Memory result = table.reallocate((void*)data, memory, new_size, alignment);
+    Memory result = (table.reallocate)((void*)data, memory, new_size, alignment);
     ALLOCATOR_POST_REALLOCATE_HOOK(allocator, memory, new_size, alignment, result);
 
     return result;
 }
 
-static inline void allocator_dealloc(Allocator* allocator, Memory memory) {
+static inline int allocator_dealloc(Allocator* allocator, Memory memory) {
     uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
     uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_DEALLOCATE_HOOK(allocator, memory);
-    table.deallocate((void*)data, memory);
-    ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory);
+    int result = (table.deallocate)((void*)data, memory);
+    ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory, result);
+
+    return result;
 }
 
 static inline void allocator_destroy(Allocator* allocator) {
@@ -125,7 +127,7 @@ static inline void allocator_destroy(Allocator* allocator) {
 #else
 static inline Memory allocator_alloc(Allocator* allocator, size_t size, size_t alignment, const char* file, const char* function, int line);
 static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size_t new_size, size_t alignment, const char* file, const char* function, int line);
-static inline void allocator_dealloc(Allocator* allocator, Memory memory, const char* file, const char* function, int line);
+static inline int  allocator_dealloc(Allocator* allocator, Memory memory, const char* file, const char* function, int line);
 static inline void allocator_destroy(Allocator* allocator, const char* file, const char* function, int line);
 
 #define allocate3(allocator, size, alignment) allocator_alloc(allocator, size, alignment, __FILE_NAME__, __func__, __LINE__)
@@ -160,7 +162,7 @@ static inline void allocator_destroy(Allocator* allocator, const char* file, con
 #define ALLOCATOR_PRE_DEALLOCATE_HOOK(allocator, memory, file, function, line) ((void)allocator, (void)memory, (void)file, (void)function, (void)line)
 #endif
 #ifndef ALLOCATOR_POST_DEALLOCATE_HOOK
-#define ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory, file, function, line) ((void)allocator, (void)memory, (void)file, (void)function, (void)line)
+#define ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory, result, file, function, line) ((void)allocator, (void)memory, (void)result, (void)file, (void)function, (void)line)
 #endif
 
 #ifndef ALLOCATOR_PRE_DESTROY_HOOK
@@ -194,14 +196,16 @@ static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size
     return result;
 }
 
-static inline void allocator_dealloc(Allocator* allocator, Memory memory, const char* file, const char* function, int line) {
+static inline int allocator_dealloc(Allocator* allocator, Memory memory, const char* file, const char* function, int line) {
     uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
     uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_DEALLOCATE_HOOK(allocator, memory, file, function, line);
-    (table.deallocate)((void*)data, memory);
-    ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory, file, function, line);
+    int result = (table.deallocate)((void*)data, memory);
+    ALLOCATOR_POST_DEALLOCATE_HOOK(allocator, memory, result, file, function, line);
+
+    return result;
 }
 
 static inline void allocator_destroy(Allocator* allocator, const char* file, const char* function, int line) {
