@@ -1,7 +1,7 @@
 #ifndef ALLOCATORS_ARENA_H
 #define ALLOCATORS_ARENA_H
 
-
+#include "allocators.h"
 
 
 typedef struct ArenaAllocator {
@@ -78,10 +78,17 @@ static Memory arena_reallocate(Allocator* allocator, Memory memory, size_t new_s
             Memory old_memory = { .base = arena->base, .size = arena->size };
             size_t new_arena_size = arena->size * 2;
             size_t base_alignment = 16;
-            Memory result = reallocate(allocator, old_memory, new_arena_size, base_alignment);
+            Memory result = reallocate(arena->parent, old_memory, new_arena_size, base_alignment);
             if (result.base == NULL) {
                 return MEMORY_NULL;
             }
+
+            memory.base = result.base;
+            memory.size = result.size;
+
+            offset = (size_t)memory.base;
+            aligned_offset = (offset + alignment - 1) & ~(alignment - 1);
+            padding = aligned_offset - offset;
         }
 
         arena->used += padding + (new_size - memory.size);
@@ -109,6 +116,13 @@ static void arena_destroy(Allocator* allocator) {
     }
 }
 
+static size_t arena_query(const Allocator* allocator, AllocatorQuery query) {
+    ArenaAllocator* arena = (ArenaAllocator*)allocator;
+    switch (query) {
+        case ALLOCATOR_QUERY_GET_PARENT:
+            return (size_t)arena->parent;
+    }
+}
 
 static int arena_allocator_kind;
 static int arena_allocator_initialize(void) {
@@ -117,6 +131,7 @@ static int arena_allocator_initialize(void) {
         .reallocate = arena_reallocate,
         .deallocate = arena_deallocate,
         .destroy = arena_destroy,
+        .query = arena_query,
     });
     return arena_allocator_kind;
 }

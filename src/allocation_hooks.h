@@ -1,8 +1,11 @@
 #ifndef ALLOCATION_HOOKS_H
 #define ALLOCATION_HOOKS_H
-#include <stdio.h>
 
 #include "allocator_base.h"
+
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
 
 size_t time_ns(void);
@@ -28,7 +31,6 @@ void allocation_post_destroy_hook(Allocator* allocator, const char* file, const 
 
 
 #endif  // ALLOCATION_HOOKS_H
-
 
 #ifdef ALLOCATION_HOOKS_IMPLEMENTATION
 
@@ -80,8 +82,8 @@ void allocation_post_allocate_hook(Allocator* allocator, size_t size, size_t ali
                          "\t\t\"allocated_ptr\": \"%p\",\n"
                          "\t\t\"time_ns\": \"%zu\"\n"
                          "\t}";
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
 
     fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, size, alignment, result.size, result.base, time_diff_ns);
 }
@@ -103,8 +105,8 @@ void allocation_post_realloc_hook(Allocator* allocator, Memory memory, size_t ne
                          "\t\t\"allocated_ptr\": \"%p\",\n"
                          "\t\t\"time_ns\": \"%zu\"\n"
                          "\t}";
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
 
     fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, memory.size, memory.base, new_size, alignment, result.size, result.base, time_diff_ns);
 }
@@ -122,8 +124,8 @@ void allocation_post_deallocate_hook(Allocator* allocator, Memory memory, const 
                          "\t\t\"deallocated_ptr\": \"%p\",\n"
                          "\t\t\"time_ns\": \"%zu\"\n"
                          "\t}";
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
 
     fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, memory.size, memory.base, time_diff_ns);
 }
@@ -139,8 +141,8 @@ void allocation_post_destroy_hook(Allocator* allocator, const char* file, const 
                          "\t\t\"allocator_data\": \"%p\",\n"
                          "\t\t\"time_ns\": \"%zu\"\n"
                          "\t}";
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
 
     fprintf(allocation_log_file, format, file, line, function, kind, (void*)data, time_diff_ns);
 }

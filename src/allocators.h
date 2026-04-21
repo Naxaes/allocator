@@ -3,12 +3,16 @@
 
 #include "allocator_base.h"
 
+#include <stdint.h>
+
+
 struct AllocatorFunctionTable {
     AllocateFn   allocate;
     ReallocateFn reallocate;
     DeallocateFn deallocate;
     DestroyFn    destroy;
-} allocator_function_kinds[16];
+    QueryFn      query;
+} allocator_function_kinds[ALLOCATOR_KINDS_COUNT];
 static int allocator_function_kinds_count = 0;
 
 typedef struct AllocatorFunctionTable AllocatorFunctionTable;
@@ -25,10 +29,10 @@ int allocator_register_kind(AllocatorFunctionTable table);
 
 
 #if ALLOCATOR_DEBUG
-Memory allocator_alloc(Allocator* allocator, size_t size, size_t alignment);
-Memory allocator_realloc(Allocator* allocator, Memory memory, size_t new_size, size_t alignment);
-void allocator_dealloc(Allocator* allocator, Memory memory);
-void allocator_destroy(Allocator* allocator);
+static inline Memory allocator_alloc(Allocator* allocator, size_t size, size_t alignment);
+static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size_t new_size, size_t alignment);
+static inline void allocator_dealloc(Allocator* allocator, Memory memory);
+static inline void allocator_destroy(Allocator* allocator);
 
 #define allocate3(allocator, size, alignment) allocator_alloc(allocator, size, alignment)
 #define reallocate4(allocator, old_memory, new_size, alignment) allocator_realloc(allocator, old_memory, new_size, alignment)
@@ -75,8 +79,8 @@ void allocator_destroy(Allocator* allocator);
 #define destroy_allocator(allocator) allocator_destroy(allocator)
 
 static inline Memory allocator_alloc(Allocator* allocator, size_t size, size_t alignment) {
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_ALLOCATE_HOOK(allocator, size, alignment);
@@ -87,8 +91,8 @@ static inline Memory allocator_alloc(Allocator* allocator, size_t size, size_t a
 }
 
 static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size_t new_size, size_t alignment) {
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_REALLOCATE_HOOK(allocator, memory, new_size, alignment);
@@ -99,8 +103,8 @@ static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size
 }
 
 static inline void allocator_dealloc(Allocator* allocator, Memory memory) {
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_DEALLOCATE_HOOK(allocator, memory);
@@ -109,8 +113,8 @@ static inline void allocator_dealloc(Allocator* allocator, Memory memory) {
 }
 
 static inline void allocator_destroy(Allocator* allocator) {
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_DESTROY_HOOK(allocator);
@@ -128,11 +132,13 @@ static inline void allocator_destroy(Allocator* allocator, const char* file, con
 #define reallocate4(allocator, old_memory, new_size, alignment) allocator_realloc(allocator, old_memory, new_size, alignment, __FILE_NAME__, __func__, __LINE__)
 #define deallocate2(allocator, memory) allocator_dealloc(allocator, memory, __FILE_NAME__, __func__, __LINE__)
 #define destroy_allocator1(allocator) allocator_destroy(allocator, __FILE_NAME__, __func__, __LINE__)
+#define query_allocator2(allocator, tag) allocator_query(allocator, tag)
 
 #define allocate2(size, alignment) allocator_alloc(allocator_current(), size, alignment, __FILE_NAME__, __func__, __LINE__)
 #define reallocate3(old_memory, new_size, alignment) allocator_realloc(allocator_current(), old_memory, new_size, alignment, __FILE_NAME__, __func__, __LINE__)
 #define deallocate1(memory) allocator_dealloc(allocator_current(), memory, __FILE_NAME__, __func__, __LINE__)
 #define destroy_allocator0() allocator_destroy(allocator_current(), __FILE_NAME__, __func__, __LINE__)
+#define query_allocator1(tag) allocator_query(allocator_current(), tag)
 
 
 /* User options */
@@ -165,8 +171,8 @@ static inline void allocator_destroy(Allocator* allocator, const char* file, con
 #endif
 
 static inline Memory allocator_alloc(Allocator* allocator, size_t size, size_t alignment, const char* file, const char* function, int line) {
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_ALLOCATE_HOOK(allocator, size, alignment, file, function, line);
@@ -177,8 +183,8 @@ static inline Memory allocator_alloc(Allocator* allocator, size_t size, size_t a
 }
 
 static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size_t new_size, size_t alignment, const char* file, const char* function, int line) {
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_REALLOCATE_HOOK(allocator, memory, new_size, alignment, file, function, line);
@@ -189,8 +195,8 @@ static inline Memory allocator_realloc(Allocator* allocator, Memory memory, size
 }
 
 static inline void allocator_dealloc(Allocator* allocator, Memory memory, const char* file, const char* function, int line) {
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_DEALLOCATE_HOOK(allocator, memory, file, function, line);
@@ -199,14 +205,27 @@ static inline void allocator_dealloc(Allocator* allocator, Memory memory, const 
 }
 
 static inline void allocator_destroy(Allocator* allocator, const char* file, const char* function, int line) {
-    uint8_t   kind = (uintptr_t)allocator & 15;
-    uintptr_t data = (uintptr_t)allocator & 0xFFFFFFFFFFFFFFF0;
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
     AllocatorFunctionTable table = allocator_function_kinds[kind];
 
     ALLOCATOR_PRE_DESTROY_HOOK(allocator, file, function, line);
     (table.destroy)((void*)data);
     ALLOCATOR_POST_DESTROY_HOOK(allocator, file, function, line);
 }
+
+static inline size_t allocator_query(Allocator* allocator, AllocatorQuery tag) {
+    uint8_t   kind = (uintptr_t)allocator & ALLOCATOR_KIND_TAG_MASK;
+    uintptr_t data = (uintptr_t)allocator & ALLOCATOR_KIND_DATA_MASK;
+    AllocatorFunctionTable table = allocator_function_kinds[kind];
+
+    if (table.query != NULL) {
+        return table.query((void*)data, tag);
+    } else {
+        return (size_t)-1;
+    }
+}
+
 
 #endif  // ALLOCATOR_DEBUG
 
@@ -243,6 +262,7 @@ This is restricted to a minimum of 1 argument and a maximum of 8.
 #define reallocate(...)        Z_WITH_DEFAULTS(reallocate, __VA_ARGS__)
 #define deallocate(...)        Z_WITH_DEFAULTS(deallocate, __VA_ARGS__)
 #define destroy_allocator(...) Z_WITH_DEFAULTS(destroy_allocator, __VA_ARGS__)
+#define query_allocator(...)   Z_WITH_DEFAULTS(query_allocator, __VA_ARGS__)
 
 
 #endif  // ALLOCATORS_H
@@ -269,7 +289,7 @@ This is restricted to a minimum of 1 argument and a maximum of 8.
 
 
 int allocator_register_kind(AllocatorFunctionTable table) {
-    if (allocator_function_kinds_count >= 16) {
+    if (allocator_function_kinds_count >= ALLOCATOR_KINDS_COUNT) {
         return -1;
     }
 
@@ -293,7 +313,7 @@ int allocator_push(Allocator* allocator) {
         return 1;
     }
     if (allocators == NULL) {
-        Memory result = allocate(allocators, 8 * sizeof(Allocator*), 16);
+        Memory result = allocate(0, 8 * sizeof(Allocator*), ALLOCATOR_KINDS_COUNT);
         if (result.base == NULL) {
             return 0;
         }
@@ -302,7 +322,7 @@ int allocator_push(Allocator* allocator) {
     } else {
         size_t new_capacity = allocators_capacity * 2;
         Memory old_memory = { .base = allocators, .size = allocators_capacity * sizeof(Allocator*) };
-        Memory result = reallocate(allocators, old_memory, new_capacity * sizeof(Allocator*), 16);
+        Memory result = reallocate(0, old_memory, new_capacity * sizeof(Allocator*), ALLOCATOR_KINDS_COUNT);
         if (result.base == NULL) {
             return 0;
         }
